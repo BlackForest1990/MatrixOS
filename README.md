@@ -8,6 +8,9 @@
 
 sudo apt-get install build-essential nasm genisoimage bochs bochs-sdl
 
+### 环境
+windows Ubuntu LTS 22.04.5
+
 ### booting
 
 
