@@ -12,6 +12,7 @@ sudo apt-get install build-essential nasm genisoimage bochs bochs-sdl
 windows Ubuntu LTS 22.04.5
 
 ### booting
+![image](https://github.com/user-attachments/assets/e3cfe5df-2ecf-4223-b9ab-408851ca6899)
 
 
 
