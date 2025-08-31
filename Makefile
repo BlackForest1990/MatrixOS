@@ -15,6 +15,7 @@ ASFLAGS = -f elf
 BOOT_SRC = boot/loader.s
 KERNEL_SRCS = kernel/kmain.c \
               kernel/drivers/fb.c \
+              kernel/drivers/serial.c \
               kernel/drivers/io.s
 
 # 对象文件列表

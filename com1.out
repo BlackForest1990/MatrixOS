@@ -1,0 +1,8 @@
+Hello, World!
+Number: 42, Hex: 0xa2
+Char: A, Percent: %
+Sum: 10 + 20 = 30
+[DEBUG] Debug message: test
+[INFO] System started with 1024 MB memory
+[ERROR] Error at address: 0xfffffff7
+[INFO] Multiple params: 123, test, 0xfedcba
