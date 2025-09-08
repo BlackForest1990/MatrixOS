@@ -16,7 +16,7 @@ align 4
 ; GDT 表开始
 gdt_start:
     ; 空描述符 (索引 0)
-    dq 0
+    dq 0x0000000000000000  ; 空描述符
 
 ; 代码段描述符 (索引 1, 选择子 = 0x08)
 gdt_code:
@@ -51,6 +51,11 @@ loader:                         ; the loader label (defined as entry point in li
         ; --- 新增：加载 GDT ---
         cli                     ; 可选：禁用中断
         lgdt [gdt_descriptor]   ; 加载 GDT
+
+        ; --- 新增：启用保护模式 ---
+        mov eax, cr0            ; 2. 读取CR0寄存器到EAX
+        or eax, 0x1             ; 设置PE（Protection Enable）位为1
+        mov cr0, eax            ; 3. 写回CR0，正式启用保护模式！
 
         ; --- 设置代码段 (CS) ---
         jmp 0x08:flush_cs       ; 远跳转：使用选择子 0x08 (代码段) 更新 CS

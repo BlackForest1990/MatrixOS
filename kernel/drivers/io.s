@@ -18,3 +18,12 @@ inb:
         mov dx, [esp + 4] ; move the address of the I/O port to the dx register
         in al, dx ; read a byte from the I/O port and store it in the al register
         ret ; return the read byte
+
+global io_wait
+; io_wait - create a short delay for I/O operations
+; stack: [esp] return address
+io_wait:
+    ; 方法1: 向未使用的端口0x80输出（传统方式）
+    mov al, 0
+    out 0x80, al
+    ret

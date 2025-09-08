@@ -17,4 +17,10 @@ void outb(unsigned short port, unsigned char data);
 */
 unsigned char inb(unsigned short port);
 
+/** io_wait:
+* Creates a short delay for I/O operations. Defined in io.s
+* This is necessary for some hardware to process I/O commands properly.
+*/
+void io_wait(void);
+
 #endif /* INCLUDE_IO_H */

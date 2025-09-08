@@ -69,32 +69,31 @@ static void itoa_dec(int num, char* str) {
 
 /* 整数转字符串（十六进制） */
 static void itoa_hex(uint32_t num, char* str) {
-    char* ptr = str;
-    char* ptr1 = str;
-    char tmp_char;
-    int digit;
-    int started = 0;
-    
     if (num == 0) {
-        *ptr++ = '0';
-        *ptr = '\0';
+        str[0] = '0';
+        str[1] = '\0';
         return;
     }
-    
-    for (int i = 28; i >= 0; i -= 4) {
-        digit = (num >> i) & 0xF;
-        if (digit != 0 || started) {
-            *ptr++ = (digit < 10) ? ('0' + digit) : ('a' + digit - 10);
-            started = 1;
-        }
-    }
-    
+
+    char* ptr = str;
+    int digit;
+    int count = 0;
+
+    do {
+        digit = num & 0xF;
+        *ptr++ = (digit < 10) ? ('0' + digit) : ('a' + digit - 10);
+        num >>= 4;
+        count++;
+    } while (num && count < 8);
+
     *ptr-- = '\0';
-    
-    while (ptr1 < ptr) {
-        tmp_char = *ptr;
-        *ptr-- = *ptr1;
-        *ptr1++ = tmp_char;
+
+    // 反转
+    char* start = str;
+    while (start < ptr) {
+        char tmp = *start;
+        *start++ = *ptr;
+        *ptr-- = tmp;
     }
 }
 
@@ -116,11 +115,11 @@ void serial_vprintf(uint16_t port, const char* format, va_list args) {
                 break;
             }
             case 'x': {
-                uint32_t num = va_arg(args, uint32_t);
-                char buffer[16];
-                itoa_hex(num, buffer);
-                serial_write(port, buffer);
-                break;
+               uint32_t num = va_arg(args, uint32_t);
+               char buffer[16];
+               itoa_hex(num, buffer);
+               serial_write(port, buffer);
+               break;
             }
             case 's': {
                 char* str = va_arg(args, char*);
@@ -130,6 +129,15 @@ void serial_vprintf(uint16_t port, const char* format, va_list args) {
             case 'c': {
                 char c = (char)va_arg(args, int);
                 serial_write_char(port, c);
+                break;
+            }
+            case 'p': { 
+                uint32_t ptr = va_arg(args, uint32_t);
+                char buffer[16];
+                buffer[0] = '0';
+                buffer[1] = 'x';
+                itoa_hex(ptr, buffer + 2);  // 假设 itoa_hex 不带 0x
+                serial_write(port, buffer);
                 break;
             }
             case '%': {
