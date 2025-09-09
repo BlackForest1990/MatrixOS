@@ -24,14 +24,11 @@ void keyboard_controller_init() {
 // 填充中断向量桩（在 interrupt_asm.s 中生成）
 void isr_install() {
     idt_install();
-    serial_write(COM1, "IDT installed\n");
 
     pic_remap(0x20, 0x28);
-    serial_write(COM1, "PIC remapped to 0x20, 0x28\n");
 
     // 启用键盘（IRQ1）
     pic_clear_mask(1);
-    serial_write(COM1, "IRQ1 enabled\n");
 
-    keyboard_controller_init();
+    //keyboard_controller_init();
 }
