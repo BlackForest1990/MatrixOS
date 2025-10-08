@@ -3,7 +3,7 @@
 #include "io.h"
 
 /* 帧缓冲区基地址 */
-static char *fb = (char *)0x000B8000;
+static char *fb = (char *)0xC00B8000;
 
 /* 当前状态 */
 static uint32_t cursor_pos = 0;

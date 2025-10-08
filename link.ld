@@ -1,30 +1,61 @@
-ENTRY(loader) /* the name of the entry label */
+ENTRY(loader)
 
-SECTIONS {
-    . = 0x00100000; /* the code should be loaded at 1 MB */
-    
-    .multiboot ALIGN (0x1000) : /* align at 4 KB */
-     {   
-           *(.multiboot)
-     }
+SECTIONS
+{
+    /* 内核物理加载起始地址：1MB */
+    . = 0x00100000;
 
-    .text ALIGN (0x1000) : /* align at 4 KB */
-    {
-        *(.text) /* all text sections from all files */
+    /* === Multiboot Header 段 === */
+    .multiboot.data : {
+        *(.multiboot.data)
     }
 
-    .rodata ALIGN (0x1000) : /* align at 4 KB */
-    {
-        *(.rodata*) /* all read-only data sections from all files */
+    .multiboot.text : {
+        *(.multiboot.text)
     }
-    .data ALIGN (0x1000) : /* align at 4 KB */
+
+
+    /* === 跳转到高半地址虚拟空间 === */
+    /* 从这里开始，所有 VMA 都加上 0xC0000000 */
+    . += 0xC0000000;
+
+    /* === .text 段：代码 === */
+    /* 虚拟地址: 0xC0100000+ */
+    /* 物理加载地址: 当前位置 - 0xC0000000 */
+    .text ALIGN(4096) : AT(ADDR(.text) - 0xC0000000)
     {
-        *(.data) /* all data sections from all files */
+        *(.text)
     }
-    .bss ALIGN (0x1000) : /* align at 4 KB */
+
+    /* === .rodata 段：只读数据 === */
+    .rodata ALIGN(4096) : AT(ADDR(.rodata) - 0xC0000000)
     {
-        *(COMMON) /* all COMMON sections from all files */
-        *(.bss) /* all bss sections from all files */
+        *(.rodata)
+    }
+
+    /* === .data 段：初始化数据 === */
+    .data ALIGN(4096) : AT(ADDR(.data) - 0xC0000000)
+    {
+        *(.data)
+    }
+
+    /* === .bss 段：未初始化数据 === */
+    .bss ALIGN(4096) : AT(ADDR(.bss) - 0xC0000000)
+    {
+        *(COMMON)
+        *(.bss)
+        *(.bootstrap_stack)  /* 可选：如果你用 bootstrap stack */
+    }
+
+
+    /* === 丢弃不需要的节 === */
+    /DISCARD/ : {
+        *(.comment)
+        *(.eh_frame)
+        *(.shstrtab)
+        *(.symtab)
+        *(.strtab)
+        *(.debug*)
     }
 }
 

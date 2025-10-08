@@ -148,7 +148,7 @@ void keyboard_init() {
     outb(0x60, 0xF4);  // Enable Scanning
 
     // 等待 ACK
-    timeout = 10000;
+   timeout = 10000;
     while (--timeout && !(inb(0x64) & 0x01));
     if (timeout <= 0) {
         serial_write(COM1, "KB: No data from keyboard\n");

@@ -30,5 +30,5 @@ void isr_install() {
     // 启用键盘（IRQ1）
     pic_clear_mask(1);
 
-    //keyboard_controller_init();
+    keyboard_controller_init();
 }

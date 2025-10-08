@@ -1,4 +1,3 @@
-// kernel/kmain.c
 #include "interrupt.h"
 #include "serial.h"
 #include "pic.h"
@@ -8,19 +7,19 @@
 void kmain() {
     fb_init();
     serial_init(COM1,1);          // 初始化串口
-    //serial_write(COM1, "MatrixOS Booting...\n");
-    //fb_puts("MatrixOS Booting...\n");
+    serial_write(COM1, "MatrixOS Booting...\n");
+    fb_puts("MatrixOS Booting...\n");
 
     isr_install();              // 安装中断
     
     // 开启全局中断
 
-    __asm__ volatile ("sti");
+    __asm__ volatile ("sti");   
 
     keyboard_init();
 
-    //serial_write(COM1, "Interrupts ENABLED!\n");
-    //fb_puts("Interrupts ENABLED!\n");
+    serial_write(COM1, "Interrupts ENABLED!\n");
+    fb_puts("Interrupts ENABLED!\n");
 
     while (1) {
         char c = keyboard_get_char();

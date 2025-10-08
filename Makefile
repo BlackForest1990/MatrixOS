@@ -23,7 +23,7 @@ CFLAGS = -m32 \
          -fcf-protection=none
 
 LDFLAGS = -T link.ld -melf_i386
-ASFLAGS = -f elf32
+ASFLAGS = -f elf32 -g
 
 # C源文件列表
 KERNEL_C_SRCS = kernel/kmain.c \
