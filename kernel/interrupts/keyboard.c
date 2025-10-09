@@ -66,6 +66,7 @@ void keyboard_input_handler(uint8_t sc)  {
     if (sc == 0xFA || sc == 0xAA || sc == 0x00 || sc == 0xFF) {
         // 是键盘的 ACK 或状态响应，不是按键
         pic_eoi(1);
+        serial_printf(COM1, "KB: Response 0x%x\n", sc);
         return;  // 直接返回，不写入 kbuf
     }
     char c = scancode_to_char(sc);
@@ -94,7 +95,7 @@ char keyboard_get_char(void) {
 
 void interrupt_handler(void* regs, uint32_t int_no) {
     (void)regs;
-   // serial_printf(COM1, "ISR: %x\n", int_no);
+    serial_printf(COM1, "ISR: %x\n", int_no);
 
     if (int_no == 33) {
         serial_printf(COM1, "ISR: %d\n", int_no);

@@ -102,7 +102,9 @@ high_half_entry:
     ; 重新加载 GDT（现在使用虚拟地址）
     lgdt [gdt_descriptor]
 
-    ; 刷新段寄存器
+    ; 刷新段寄存器 - 使用远跳转确保CS正确
+    jmp 0x08:.reload_cs
+.reload_cs:
     mov ax, 0x10
     mov ds, ax
     mov es, ax

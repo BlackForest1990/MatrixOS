@@ -53,7 +53,7 @@ ISR_NOERR 31
 
 ; IRQ 处理桩 (32-47)
 %assign i 32
-%rep 16
+%rep 224
     ISR_NOERR i
     %assign i i+1
 %endrep
@@ -64,15 +64,15 @@ ISR_NOERR 31
 global interrupt_vectors
 interrupt_vectors:
     %assign i 0
-    %rep 48
+    %rep 256
         dd int_%+i          ; ✅ 正确展开为 int_0, int_1, ..., int_33
         %assign i i+1
     %endrep
 
     ; 剩余 208 个设为 0
-    %rep 208
-        dd 0
-    %endrep
+    ;%rep 208
+     ;   dd 0
+    ;%endrep
 ; ================================
 ; 公共中断处理桩
 ; ================================
@@ -118,3 +118,4 @@ isr_common_stub:
 
     sti
     iret
+

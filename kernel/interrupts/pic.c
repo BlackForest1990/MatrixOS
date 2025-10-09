@@ -30,10 +30,14 @@ void pic_remap(int offset1, int offset2) {
     outb(0x21, 0x04);  // 主片 IR2 连接到从片
     outb(0xA1, 0x02);  // 从片连接到主片 IR2
 
-    // ICW4: 8086 模式
+    // ICW4: 8086 模式`
     outb(0x21, 0x01);  // 主片
     outb(0xA1, 0x01);  // 从片
-
+    
+    // 屏蔽所有中断（除了后面要启用的）
+    outb(PIC1_DATA, 0xFF);
+    outb(PIC2_DATA, 0xFF);     
+  
     // 恢复 IMR
     outb(0x21, a1);
     outb(0xA1, a2);
