@@ -16,7 +16,7 @@ CFLAGS = -m32 \
          -c \
          -O0 \
 	 -g \
-         -Iinclude -Ikernel -Ikernel/drivers -Ikernel/interrupts -Ilib \
+         -Iinclude -Ikernel -Ikernel/drivers -Ikernel/interrupts -Ikernel/mm -Ilib \
          -fno-pic \
          -fno-pie \
          -static \
@@ -32,7 +32,12 @@ KERNEL_C_SRCS = kernel/kmain.c \
                 kernel/interrupts/idt.c \
                 kernel/interrupts/interrupt.c \
                 kernel/interrupts/pic.c \
-                kernel/interrupts/keyboard.c
+                kernel/interrupts/keyboard.c \
+		kernel/mm/kmalloc.c \
+		kernel/mm/pmm.c \
+		kernel/mm/temp_mapping.c \
+		kernel/mm/test_mm.c \
+		lib/string.c
 
 # 汇编源文件列表
 KERNEL_ASM_SRCS = kernel/drivers/io.asm \

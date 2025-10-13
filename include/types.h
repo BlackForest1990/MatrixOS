@@ -23,4 +23,7 @@ typedef uint32_t size_t;
 /* 空指针类型 */
 typedef void* ptr_t;
 
+#define NULL ((void*)0)
+#define PAGE_SIZE 4096
+
 #endif /* TYPES_H */
