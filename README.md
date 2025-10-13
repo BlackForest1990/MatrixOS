@@ -9,3 +9,5 @@
 
 因为作者是part time开发，所以经济上较为拮据，有能力的朋友可以帮帮忙
 ![微信图片_20251013105829_27](https://github.com/user-attachments/assets/3eacbf9e-a6fd-4cc2-9fa5-e2f0d2c78587)
+
+<img src="https://github.com/user-attachments/assets/3eacbf9e-a6fd-4cc2-9fa5-e2f0d2c78587" width="500" height="300">
