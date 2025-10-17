@@ -6,6 +6,7 @@
 
 struct temp_mapping_manager temp_mgr;
 
+/*初始化临时页面映射系统，为内核提供快速映射物理页到固定虚拟地址的能力*/
 void temp_mapping_init(void) {
     serial_printf(COM1, "TEMP_MAPPING: Initializing temporary mapping framework...\n");
     

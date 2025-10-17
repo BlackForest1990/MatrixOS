@@ -1,6 +1,7 @@
 #include "serial.h"
 #include "types.h"
 #include "io.h"
+#include "string.h"
 
 /* 串口初始化 */
 void serial_init(uint16_t port, uint16_t divisor) {

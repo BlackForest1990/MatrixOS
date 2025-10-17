@@ -209,24 +209,25 @@ void pmm_stats(void) {
     serial_printf(COM1, "  Total pages: %d\n", buddy_sys.total_pages);
     serial_printf(COM1, "  Managed pages: %d\n", buddy_sys.managed_pages);
     
+    // 输出各阶空闲块数量
     for (int i = 0; i <= MAX_ORDER; i++) {
         uint32_t block_size = 1 << i;
         serial_printf(COM1, "  Order %d (%d pages): %d free blocks\n", 
                      i, block_size, buddy_sys.free_area[i].nr_free);
     }
     
-    // 计算内存使用率
-    uint32_t used_pages = 0;
-    for (uint32_t i = 0; i < buddy_sys.total_pages; i++) {
-        if (buddy_sys.bitmap[i / 8] & (1 << (i % 8))) {
-            used_pages++;
-        }
+    // 修正：基于空闲链表计算实际使用情况，而不是位图
+    uint32_t total_free_pages = 0;
+    for (int i = 0; i <= MAX_ORDER; i++) {
+        total_free_pages += buddy_sys.free_area[i].nr_free * (1 << i);
     }
     
-    uint32_t free_pages = buddy_sys.total_pages - used_pages;
+    uint32_t used_pages = buddy_sys.managed_pages - total_free_pages;
+    uint32_t free_pages = total_free_pages;
+    
     serial_printf(COM1, "  Used pages: %d\n", used_pages);
     serial_printf(COM1, "  Free pages: %d\n", free_pages);
-    serial_printf(COM1, "  Usage: %d%%\n", (used_pages * 100) / buddy_sys.total_pages);
+    serial_printf(COM1, "  Usage: %d%%\n", (used_pages * 100) / buddy_sys.managed_pages);
     
     spinlock_release(&buddy_sys.lock);
 }

@@ -217,8 +217,8 @@ void kmalloc_stats(void) {
     serial_printf(COM1, "Total blocks: %d\n", free_blocks + used_blocks);
     
     if (heap_mgr.current_usage > 0) {
-        serial_printf(COM1, "Memory efficiency: %.2f%%\n", 
-                     (float)heap_mgr.total_allocated / heap_mgr.current_usage * 100);
+        serial_printf(COM1, "Memory efficiency: %d%%\n", 
+                     (heap_mgr.total_allocated * 100) / heap_mgr.current_usage);
     }
     
     spinlock_release(&heap_mgr.lock);
