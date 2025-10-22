@@ -4,7 +4,6 @@ AS = nasm
 LD = ld
 
 # 编译标志
-
 CFLAGS = -m32 \
          -nostdlib \
          -nostdinc \
@@ -16,7 +15,7 @@ CFLAGS = -m32 \
          -c \
          -O0 \
 	 -g \
-         -Iinclude -Ikernel -Ikernel/drivers -Ikernel/interrupts -Ikernel/mm -Ilib \
+         -Iinclude -Ikernel -Ikernel/drivers -Ikernel/interrupts -Ikernel/mm -Ikernel/process -Ikernel/syscall -Ilib \
          -fno-pic \
          -fno-pie \
          -static \
@@ -25,23 +24,31 @@ CFLAGS = -m32 \
 LDFLAGS = -T link.ld -melf_i386
 ASFLAGS = -f elf32 -g
 
-# C源文件列表
+# C源文件列表 - 添加新的用户模式模块
 KERNEL_C_SRCS = kernel/kmain.c \
                 kernel/drivers/fb.c \
                 kernel/drivers/serial.c \
                 kernel/interrupts/idt.c \
                 kernel/interrupts/interrupt.c \
+				kernel/interrupts/tss.c \
                 kernel/interrupts/pic.c \
                 kernel/interrupts/keyboard.c \
 		kernel/mm/kmalloc.c \
 		kernel/mm/pmm.c \
 		kernel/mm/temp_mapping.c \
+		kernel/mm/vmm.c \
 		kernel/mm/test_mm.c \
+		kernel/process/process.c \
+		kernel/process/loader.c \
+		kernel/syscall/syscall.c \
 		lib/string.c
 
-# 汇编源文件列表
+# 汇编源文件列表 - 添加用户模式相关汇编
 KERNEL_ASM_SRCS = kernel/drivers/io.asm \
-                  kernel/interrupts/interrupt_asm.asm
+                  kernel/interrupts/interrupt_asm.asm \
+                  kernel/process/switch.asm \
+                  kernel/syscall/syscall_asm.asm \
+				  kernel/interrupts/tss_asm.asm 
 
 # 引导加载程序汇编文件
 BOOT_SRC = boot/loader.asm
@@ -52,31 +59,70 @@ KERNEL_C_OBJS = $(KERNEL_C_SRCS:.c=.o)
 KERNEL_ASM_OBJS = $(KERNEL_ASM_SRCS:.asm=.o)
 OBJECTS = $(BOOT_OBJ) $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS)
 
-all: kernel.elf
+# 用户程序
+USER_PROGRAMS = user/programs/hello.asm
+USER_BIN = user/build/hello.bin
 
+# 默认目标
+all: user-programs kernel.elf
+
+# 内核ELF文件
 kernel.elf: $(OBJECTS)
-	ld $(LDFLAGS) $(OBJECTS) -o kernel.elf
+	$(LD) $(LDFLAGS) $(OBJECTS) -o kernel.elf
 
-os.iso: kernel.elf
-	mkdir -p iso/boot/grub
+# 编译用户程序
+user-programs: $(USER_PROGRAMS)
+	@mkdir -p user/build
+	$(AS) -f bin $(USER_PROGRAMS) -o $(USER_BIN)
+
+# 创建ISO镜像（包含用户程序模块）
+os.iso: kernel.elf user-programs
+	@mkdir -p iso/boot/grub
 	cp kernel.elf iso/boot/kernel.elf
-	cp boot/grub/grub.cfg iso/boot/grub/
-	grub-mkrescue -o os.iso iso   
+	cp $(USER_BIN) iso/boot/
+	@echo 'set timeout=0' > iso/boot/grub/grub.cfg
+	@echo 'set default=0' >> iso/boot/grub/grub.cfg
+	@echo '' >> iso/boot/grub/grub.cfg
+	@echo 'menuentry "MatrixOS with User Mode" {' >> iso/boot/grub/grub.cfg
+	@echo '  multiboot /boot/kernel.elf' >> iso/boot/grub/grub.cfg
+	@echo '  module /boot/hello.bin hello' >> iso/boot/grub/grub.cfg
+	@echo '}' >> iso/boot/grub/grub.cfg
+	grub-mkrescue -o os.iso iso
 
-# 快速运行 QEMU
+# 快速运行 QEMU（直接加载内核）- 不带模块
 qemu: kernel.elf
-	qemu-system-i386 -kernel kernel.elf -serial stdio -d int -no-reboot -no-shutdown
+	qemu-system-i386 -kernel kernel.elf -serial stdio -no-reboot -no-shutdown
 
-# 新增：启动 QEMU 并等待 GDB 连接
+# 使用ISO运行QEMU（包含用户程序模块）
+qemu-iso: os.iso
+	qemu-system-i386 -cdrom os.iso -serial stdio -no-reboot -no-shutdown
+
+# ========== 新增：调试目标（包含用户模块）==========
+# 调试模式 - 使用ISO（推荐，包含用户模块）
+debug-iso: os.iso
+	qemu-system-i386 -cdrom os.iso \
+		-s -S \
+		-serial stdio \
+		-no-reboot \
+		-no-shutdown
+
+# 调试模式 - 直接加载内核和模块（使用initrd）
+debug-modules: kernel.elf user-programs
+	qemu-system-i386 -kernel kernel.elf \
+		-initrd $(USER_BIN) \
+		-append "modules=hello" \
+		-s -S \
+		-serial stdio \
+		-no-reboot \
+		-no-shutdown
+
+# 调试模式 - 传统方式（不包含模块）
 debug-qemu: kernel.elf
 	qemu-system-i386 -kernel kernel.elf \
 		-s -S \
 		-serial stdio \
-		-d int \
-		-D qemu.log \
 		-no-reboot \
 		-no-shutdown
-		# ^^^^ -s: 启用 GDB server (port 1234), -S: 启动时暂停 CPU
 
 # 运行bochs
 run: os.iso
@@ -89,11 +135,28 @@ run: os.iso
 %.o: %.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
-#清理
+# 清理
 clean:
 	find . -name "*.o" -delete
-	rm -f kernel.elf os.iso bochslog.txt com1.out
-	rm -rf iso/
+	rm -f kernel.elf os.iso bochslog.txt com1.out $(USER_BIN)
+	rm -rf iso/ user/build/
+
+# 显示构建信息
+info:
+	@echo "=== Build Information ==="
+	@echo "C Sources: $(words $(KERNEL_C_SRCS)) files"
+	@echo "ASM Sources: $(words $(KERNEL_ASM_SRCS)) files"
+	@echo "User Programs: $(USER_PROGRAMS)"
+	@echo "=== Debug Targets ==="
+	@echo "debug-iso     : Debug with ISO (includes user modules)"
+	@echo "debug-modules : Debug with direct module loading"
+	@echo "debug-qemu    : Debug kernel only (no modules)"
+
+# 快速构建（不清理）
+quick: $(OBJECTS)
+	$(LD) $(LDFLAGS) $(OBJECTS) -o kernel.elf
 
 # 删除中间文件时出错则中断
 .DELETE_ON_ERROR:
+
+.PHONY: all clean qemu debug-qemu debug-iso debug-modules run user-programs qemu-iso info quick
