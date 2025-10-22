@@ -6,7 +6,3 @@
 希望可以帮助大家对于底层知识的理解。
 
 对于具体的实现，请大家参考document里的操作系统开发总结，目前作者实现到分页部分
-
-因为作者是part time开发，所以经济上较为拮据，有能力的朋友可以帮帮忙
-
-<img src="https://github.com/user-attachments/assets/3eacbf9e-a6fd-4cc2-9fa5-e2f0d2c78587" width="200" height="300">
