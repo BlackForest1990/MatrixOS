@@ -10,10 +10,18 @@
 #define SYSCALL_PUTCHAR  4
 #define SYSCALL_GETPID   5
 
+struct regs {
+    uint32_t gs, fs, es, ds;      // 段寄存器
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;  // 通用寄存器
+    uint32_t int_no, err_code;    // 中断号和错误码
+    uint32_t eip, cs, eflags, useresp, ss;  // 自动压栈的寄存器
+};
+
+
 // 系统调用初始化
 void syscall_init(void);
 
 // 系统调用处理函数（由汇编调用）
-void syscall_handler(uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3);
+void syscall_handler(struct regs *r);
 
 #endif

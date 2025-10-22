@@ -152,6 +152,8 @@ high_half_entry:
 
 SECTION .data
 align 4
+global gdt_start    ; 导出符号
+global gdt_tss      ; 导出符号
 gdt_start:
     ; 空描述符 (索引 0)
     dq 0x0000000000000000

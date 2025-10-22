@@ -15,6 +15,11 @@ void isr_install() {
 
     pic_remap(0x20, 0x28);
 
+    //首先设置 TSS 描述符的基地址
+    extern void tss_set_descriptor(uint32_t base);
+    tss_set_descriptor((uint32_t)&tss);
+    serial_printf(COM1, "TSS descriptor base set to 0x%x\n", (uint32_t)&tss);
+
     // 初始化 TSS
     tss_init();
     
