@@ -36,12 +36,3 @@ syscall_entry:
     
     iret
 
-; 简单的系统调用测试函数（可选）
-global syscall_invoke
-syscall_invoke:
-    mov eax, [esp+4]    ; 系统调用号
-    mov ebx, [esp+8]    ; 参数1
-    mov ecx, [esp+12]   ; 参数2  
-    mov edx, [esp+16]   ; 参数3
-    int 0x80
-    ret

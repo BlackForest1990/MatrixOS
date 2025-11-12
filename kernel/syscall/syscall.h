@@ -10,6 +10,14 @@
 #define SYSCALL_PUTCHAR  4
 #define SYSCALL_GETPID   5
 
+#define SYSCALL_OPEN    10
+#define SYSCALL_CLOSE   11
+#define SYSCALL_READ    12
+#define SYSCALL_WRITE   13
+#define SYSCALL_SEEK    14
+#define SYSCALL_IOCTL   15
+#define SYSCALL_STAT    16
+
 struct regs {
     uint32_t gs, fs, es, ds;      // 段寄存器
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;  // 通用寄存器

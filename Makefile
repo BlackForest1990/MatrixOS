@@ -15,7 +15,7 @@ CFLAGS = -m32 \
          -c \
          -O0 \
 	 -g \
-         -Iinclude -Ikernel -Ikernel/drivers -Ikernel/interrupts -Ikernel/mm -Ikernel/process -Ikernel/syscall -Ilib \
+         -Iinclude -Ikernel -Ikernel/drivers -Ikernel/interrupts -Ikernel/mm -Ikernel/process -Ikernel/fs -Ikernel/syscall -Ilib \
          -fno-pic \
          -fno-pie \
          -static \
@@ -41,6 +41,10 @@ KERNEL_C_SRCS = kernel/kmain.c \
 		kernel/process/process.c \
 		kernel/process/loader.c \
 		kernel/syscall/syscall.c \
+		kernel/fs/vfs.c \
+		kernel/fs/ramfs.c \
+		kernel/fs/devfs.c \
+		kernel/fs/test_fs.c \
 		lib/string.c
 
 # 汇编源文件列表 - 添加用户模式相关汇编
@@ -60,8 +64,8 @@ KERNEL_ASM_OBJS = $(KERNEL_ASM_SRCS:.asm=.o)
 OBJECTS = $(BOOT_OBJ) $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS)
 
 # 用户程序
-USER_PROGRAMS = user/programs/hello.asm
-USER_BIN = user/build/hello.bin
+USER_PROGRAMS = user/programs/hello.asm user/programs/file_test.asm
+USER_BINS = $(patsubst user/programs/%.asm,user/build/%.bin,$(USER_PROGRAMS))
 
 # 默认目标
 all: user-programs kernel.elf
@@ -73,19 +77,22 @@ kernel.elf: $(OBJECTS)
 # 编译用户程序
 user-programs: $(USER_PROGRAMS)
 	@mkdir -p user/build
-	$(AS) -f bin $(USER_PROGRAMS) -o $(USER_BIN)
+	$(foreach prog,$(USER_PROGRAMS),\
+		$(AS) -f bin $(prog) -o $(patsubst user/programs/%.asm,user/build/%.bin,$(prog));)
+
 
 # 创建ISO镜像（包含用户程序模块）
 os.iso: kernel.elf user-programs
 	@mkdir -p iso/boot/grub
 	cp kernel.elf iso/boot/kernel.elf
-	cp $(USER_BIN) iso/boot/
+	cp $(USER_BINS) iso/boot/
 	@echo 'set timeout=0' > iso/boot/grub/grub.cfg
 	@echo 'set default=0' >> iso/boot/grub/grub.cfg
 	@echo '' >> iso/boot/grub/grub.cfg
-	@echo 'menuentry "MatrixOS with User Mode" {' >> iso/boot/grub/grub.cfg
+	@echo 'menuentry "MatrixOS with File System" {' >> iso/boot/grub/grub.cfg
 	@echo '  multiboot /boot/kernel.elf' >> iso/boot/grub/grub.cfg
 	@echo '  module /boot/hello.bin hello' >> iso/boot/grub/grub.cfg
+	@echo '  module /boot/file_test.bin file_test' >> iso/boot/grub/grub.cfg
 	@echo '}' >> iso/boot/grub/grub.cfg
 	grub-mkrescue -o os.iso iso
 
@@ -109,8 +116,8 @@ debug-iso: os.iso
 # 调试模式 - 直接加载内核和模块（使用initrd）
 debug-modules: kernel.elf user-programs
 	qemu-system-i386 -kernel kernel.elf \
-		-initrd $(USER_BIN) \
-		-append "modules=hello" \
+		-initrd $(USER_BINS) \
+		-append "modules=hello,file_test" \
 		-s -S \
 		-serial stdio \
 		-no-reboot \
@@ -147,6 +154,7 @@ info:
 	@echo "C Sources: $(words $(KERNEL_C_SRCS)) files"
 	@echo "ASM Sources: $(words $(KERNEL_ASM_SRCS)) files"
 	@echo "User Programs: $(USER_PROGRAMS)"
+	@echo "User Binaries: $(USER_BINS)"
 	@echo "=== Debug Targets ==="
 	@echo "debug-iso     : Debug with ISO (includes user modules)"
 	@echo "debug-modules : Debug with direct module loading"

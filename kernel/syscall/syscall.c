@@ -3,6 +3,7 @@
 #include "serial.h"
 #include "fb.h"
 #include "keyboard.h"
+#include "vfs.h"
 
 void syscall_handler(struct regs *r) {
     uint32_t syscall_num = r->eax;
@@ -23,6 +24,8 @@ void syscall_handler(struct regs *r) {
             break;
             
         case SYSCALL_PUTS:
+
+            serial_printf(COM1, "SYSCALL_PUTS: direct access to user pointer 0x%x\n", arg1);
             if (arg1) {
                 char* str = (char*)arg1;
                 serial_printf(COM1, "[USER%d OUTPUT] %s\n", pid, str);
@@ -55,6 +58,96 @@ void syscall_handler(struct regs *r) {
         case SYSCALL_GETPID:
             serial_printf(COM1, "SYSCALL: Process %d requested PID\n", pid);
             r->eax = pid;  // 通过 eax 返回 PID
+            break;
+
+        case SYSCALL_OPEN:
+            if (arg1) {
+                char* filename = (char*)arg1;
+                int fd = vfs_open(filename, arg2);
+                r->eax = fd;
+                serial_printf(COM1, "SYSCALL: Process %d opened '%s' (flags: 0x%x) -> fd %d\n", 
+                            pid, filename, arg2, fd);
+            } else {
+                r->eax = EINVAL;
+            }
+            break;
+
+        case SYSCALL_CLOSE:
+            r->eax = vfs_close(arg1);
+            serial_printf(COM1, "SYSCALL: Process %d closed fd %d\n", pid, arg1);
+            break;
+
+        case SYSCALL_READ:
+            {
+                int fd = arg1;
+                char* buf = (char*)arg2;
+                uint32_t count = arg3;
+                
+                if (!buf) {
+                    r->eax = EINVAL;
+                    break;
+                }
+                
+                int bytes_read = vfs_read(fd, buf, count);
+                r->eax = bytes_read;
+                
+                if (bytes_read > 0) {
+                    serial_printf(COM1, "SYSCALL: Process %d read %d bytes from fd %d\n", 
+                                pid, bytes_read, fd);
+                }
+            }
+            break;
+        case SYSCALL_WRITE:
+            {
+                int fd = arg1;
+                const char* buf = (const char*)arg2;
+                uint32_t count = arg3;
+                
+                if (!buf) {
+                    r->eax = EINVAL;
+                    break;
+                }
+                
+                int bytes_written = vfs_write(fd, buf, count);
+                r->eax = bytes_written;
+                
+                if (bytes_written > 0 && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
+                    serial_printf(COM1, "SYSCALL: Process %d wrote %d bytes to fd %d\n", 
+                                pid, bytes_written, fd);
+                }
+            }
+            break;
+
+        case SYSCALL_SEEK:
+            {
+                int fd = arg1;
+                int offset = arg2;
+                int whence = arg3;
+                r->eax = vfs_seek(fd, offset, whence);
+            }
+            break;
+
+        case SYSCALL_IOCTL:
+            {
+                int fd = arg1;
+                int request = arg2;
+                void* argp = (void*)arg3;
+                r->eax = vfs_ioctl(fd, request, argp);
+            }
+            break;
+
+        case SYSCALL_STAT:
+            {
+                const char* path = (const char*)arg1;
+                struct file_stat* stat = (struct file_stat*)arg2;
+                
+                if (!path || !stat) {
+                    r->eax = EINVAL;
+                    break;
+                }
+                
+                r->eax = vfs_stat(path, stat);
+            }
             break;
             
         default:
