@@ -163,7 +163,60 @@ void idt_install() {
 
     serial_printf(COM1, "IDT: Installation complete\n");
 }
-; kernel/interrupts/tss_asm.asm
+// kernel/interrupts/pic.h
+#ifndef PIC_H
+#define PIC_H
+
+#include "types.h"
+
+void pic_remap(int offset1, int offset2);
+void pic_eoi(uint8_t irq);
+void pic_set_mask(uint8_t irq);
+void pic_clear_mask(uint8_t irq);
+
+#endif
+#ifndef TSS_H
+#define TSS_H
+
+#include <types.h>
+
+typedef struct tss_entry {
+    uint32_t prev_tss;
+    uint32_t esp0;
+    uint32_t ss0;
+    uint32_t esp1;
+    uint32_t ss1;
+    uint32_t esp2;
+    uint32_t ss2;
+    uint32_t cr3;
+    uint32_t eip;
+    uint32_t eflags;
+    uint32_t eax;
+    uint32_t ecx;
+    uint32_t edx;
+    uint32_t ebx;
+    uint32_t esp;
+    uint32_t ebp;
+    uint32_t esi;
+    uint32_t edi;
+    uint32_t es;
+    uint32_t cs;
+    uint32_t ss;
+    uint32_t ds;
+    uint32_t fs;
+    uint32_t gs;
+    uint32_t ldt;
+    uint16_t trap;
+    uint16_t iomap_base;
+} __attribute__((packed)) tss_entry_t;
+
+// 声明全局 TSS 变量
+extern tss_entry_t tss;
+
+void tss_init(void);
+void tss_set_stack(uint32_t kernel_ss, uint32_t kernel_esp);
+
+#endif; kernel/interrupts/tss_asm.asm
 ; TSS 加载函数
 
 section .text
@@ -267,6 +320,19 @@ void pic_clear_mask(uint8_t irq) {
     value = inb(port) & ~(1 << irq);
     outb(port, value);
 }
+// kernel/interrupts/keyboard.h
+#ifndef KEYBOARD_H
+#define KEYBOARD_H
+
+#include "types.h"
+
+void interrupt_handler(void* regs, uint32_t int_no);
+void keyboard_init();
+void keyboard_input_handler(uint8_t sc);
+char keyboard_get_char(void);
+char scancode_to_char(uint8_t sc);
+
+#endif
 #include "tss.h"
 #include "serial.h"
 #include "string.h"
@@ -425,6 +491,32 @@ isr_common_stub:
     sti
     iret
 
+// kernel/interrupts/idt.h
+#ifndef IDT_H
+#define IDT_H
+
+#include "types.h"
+
+#define IDT_ENTRIES 256
+#define KERNEL_CS 0x08
+
+struct idt_entry {
+    uint16_t base_low;
+    uint16_t sel;
+    uint8_t  zero;
+    uint8_t  flags;
+    uint16_t base_high;
+} __attribute__((packed));
+
+struct idt_ptr {
+    uint16_t limit;
+    uint32_t base;
+} __attribute__((packed));
+
+void idt_set_gate(int n, uint32_t handler, uint8_t flags);
+void idt_install();
+
+#endif
 // kernel/interrupts/interrupt.c
 #include "interrupt.h"
 #include "idt.h"
@@ -630,6 +722,115 @@ void keyboard_init() {
 
     serial_write(COM1, "KB: Init done.\n");
 }
+// kernel/interrupts/interrupt.h
+#ifndef INTERRUPT_H
+#define INTERRUPT_H
+
+void keyboard_controller_init();
+void isr_install();
+
+#endif
+#ifndef FRAMEBUFFER_H
+#define FRAMEBUFFER_H
+
+#include "types.h"  /* 使用自定义类型 */
+
+/* 颜色常量定义 */
+#define FB_BLACK         0x0
+#define FB_BLUE          0x1
+#define FB_GREEN         0x2
+#define FB_CYAN          0x3
+#define FB_RED           0x4
+#define FB_MAGENTA       0x5
+#define FB_BROWN         0x6
+#define FB_LIGHT_GRAY    0x7
+#define FB_DARK_GRAY     0x8
+#define FB_LIGHT_BLUE    0x9
+#define FB_LIGHT_GREEN   0xA
+#define FB_LIGHT_CYAN    0xB
+#define FB_LIGHT_RED     0xC
+#define FB_LIGHT_MAGENTA 0xD
+#define FB_YELLOW        0xE
+#define FB_WHITE         0xF
+
+/* 核心写入函数 */
+int fb_write(char *buf, uint32_t len);
+
+/* 初始化函数 */
+void fb_init(void);
+
+/* 颜色控制 */
+void fb_set_color(uint8_t foreground, uint8_t background);
+void fb_get_color(uint8_t *foreground, uint8_t *background);
+
+/* 光标控制 */
+void fb_set_cursor(uint32_t position);
+uint32_t fb_get_cursor(void);
+void fb_move_cursor(int32_t offset);
+
+/* 屏幕管理 */
+void fb_clear(void);
+void fb_clear_line(uint32_t line);
+void fb_scroll(void);
+
+/* 便捷函数 */
+void fb_putchar(char c);
+void fb_puts(char *str);
+
+/* 直接内存访问 */
+void fb_direct_write(uint32_t position, char c, uint8_t fg, uint8_t bg);
+
+/*设置硬件光标位置*/
+void fb_set_cursor(unsigned int position);
+
+                                                                                                                     
+void fb_write_cell(uint32_t pos, char c, uint8_t fg, uint8_t bg);
+uint32_t fb_strlen(char *str);
+
+
+
+#endif /* FRAMEBUFFER_H */
+#ifndef SERIAL_H
+#define SERIAL_H
+
+#include <types.h>
+
+/* 串口端口地址 */
+#define COM1 0x3F8
+
+/* 日志级别 */
+typedef enum {
+    DEBUG,
+    INFO, 
+    ERROR
+} log_level_t;
+
+/* 可变参数相关类型 */
+typedef char* va_list;
+#define va_start(ap, param) (ap = (va_list)&param + sizeof(param))
+#define va_arg(ap, type) (*(type*)((ap += sizeof(type)) - sizeof(type)))
+#define va_end(ap) (ap = (va_list)0)
+
+/* 初始化串口 */
+void serial_init(uint16_t port, uint16_t divisor);
+
+/* 检查传输FIFO是否为空 */
+int serial_transmit_empty(uint16_t port);
+
+/* 向串口写入单个字符 */
+void serial_write_char(uint16_t port, char c);
+
+/* 向串口写入字符串 */
+void serial_write(uint16_t port, const char* str);
+
+/* 类似printf的串口输出函数 */
+void serial_printf(uint16_t port, const char* format, ...);
+void serial_vprintf(uint16_t port, const char* format, va_list args);
+
+/* 带日志级别的串口输出 */
+void serial_log(uint16_t port, log_level_t level, const char* format, ...);
+
+#endif /* SERIAL_H */
 #include "serial.h"
 #include "types.h"
 #include "io.h"
@@ -814,6 +1015,32 @@ void serial_log(uint16_t port, log_level_t level, const char* format, ...) {
     
     serial_write(port, "\n");
 }
+#ifndef INCLUDE_IO_H
+#define INCLUDE_IO_H
+
+/** outb:
+* Sends the given data to the given I/O port. Defined in io.s
+*
+* @param port The I/O port to send the data to
+* @param data The data to send to the I/O port
+*/
+void outb(unsigned short port, unsigned char data);
+
+/** inb:
+* Read a byte from an I/O port.
+*
+* @param port The address of the I/O port
+* @return The read byte
+*/
+unsigned char inb(unsigned short port);
+
+/** io_wait:
+* Creates a short delay for I/O operations. Defined in io.s
+* This is necessary for some hardware to process I/O commands properly.
+*/
+void io_wait(void);
+
+#endif /* INCLUDE_IO_H */
 global outb ; make the label outb visible outside this file
 
 ; outb - send a byte to an I/O port
@@ -1023,6 +1250,10 @@ void fb_set_cursor(unsigned int position)
 #include "loader.h"
 #include "syscall.h"
 #include "string.h"
+#include "test_fs.h"
+#include "vfs.h"
+#include "ramfs.h"
+#include "devfs.h"
 
 void kmain(uint32_t magic, uint32_t addr) {
     fb_init();
@@ -1043,9 +1274,21 @@ void kmain(uint32_t magic, uint32_t addr) {
     process_init();
     syscall_init();
 
+    // ✅ 修正：先加载GRUB模块，再初始化文件系统
     if (mbi->flags & (1 << 3)) {
         loader_init(mbi->mods_count, mbi->mods_addr);
+        serial_printf(COM1, "Loaded %d user modules\n", loader_get_module_count());
+    } else {
+        serial_printf(COM1, "No user modules found in multiboot info\n");
     }
+
+    // ✅ 修正：现在初始化文件系统（RAMFS需要访问已加载的模块）
+    vfs_init();
+    ramfs_init();
+    devfs_init();
+
+    // 运行文件系统测试
+    run_filesystem_tests();
 
     isr_install();
     __asm__ volatile ("sti");
@@ -1055,15 +1298,25 @@ void kmain(uint32_t magic, uint32_t addr) {
     fb_puts("System Ready!\n");
 
     //run_all_memory_tests();
-    
 
+    // 在启动用户程序前，检查文件系统状态
     if (loader_get_module_count() > 0) {
+        // 检查文件是否存在
+        struct file_stat stat;
+        if (vfs_stat("hello", &stat) == 0) {
+            serial_printf(COM1, "Found user program 'hello' (%d bytes)\n", stat.size);
+        } else {
+            serial_printf(COM1, "User program 'hello' not found in filesystem\n");
+        }
+        
         uint32_t pid = process_create_from_module("hello");
         if (pid) {
             process_list();
             serial_printf(COM1, "\nStarting user program...\n");
             fb_puts("Starting user program...\n");
             process_start(pid);
+        } else {
+            serial_printf(COM1, "Failed to create process from module 'hello'\n");
         }
     } else {
         serial_printf(COM1, "No user modules found\n");
@@ -1325,7 +1578,26 @@ void process_list(void) {
                          processes[i].pid, processes[i].name, state_str);
         }
     }
-}; kernel/process/switch.asm
+}#ifndef LOADER_H
+#define LOADER_H
+
+#include <types.h>
+
+#define MAX_MODULES 16
+
+typedef struct {
+    char name[32];
+    uint32_t start;
+    uint32_t end;
+    uint32_t size;
+} module_info_t;
+
+void loader_init(uint32_t mods_count, uint32_t mods_addr);
+module_info_t* loader_find_module(const char* name);
+uint32_t loader_get_module_count(void);
+module_info_t* loader_get_module(uint32_t index);
+
+#endif; kernel/process/switch.asm
 ; 用户模式切换汇编函数
 
 section .text
@@ -1367,7 +1639,887 @@ switch_to_user_mode:
     ; 切换到用户模式
     iret
 
-; 删除下面的 syscall_entry 相关代码// kernel/mm/pmm.c
+; 删除下面的 syscall_entry 相关代码#ifndef PROCESS_H
+#define PROCESS_H
+
+#include <types.h>
+
+#define MAX_PROCESSES 16
+#define USER_STACK_TOP 0xBFFFFFFB
+#define USER_STACK_SIZE 4096
+
+typedef enum {
+    PROCESS_UNUSED = 0,
+    PROCESS_READY,
+    PROCESS_RUNNING,
+    PROCESS_BLOCKED,
+    PROCESS_TERMINATED
+} process_state_t;
+
+typedef struct process_control_block {
+    uint32_t pid;
+    process_state_t state;
+    char name[32];
+    uint32_t page_directory;
+    uint32_t entry_point;
+    uint32_t user_stack;
+    uint32_t kernel_stack;
+    uint32_t cr3_snapshot;
+} pcb_t;
+
+void process_init(void);
+uint32_t process_create_from_module(const char* module_name);
+void process_start(uint32_t pid);
+void process_exit_current(void);
+pcb_t* process_get_current(void);
+void process_list(void);
+
+#endif// kernel/fs/ramfs.c
+#include "ramfs.h"
+#include "vfs.h"
+#include "string.h"
+#include "serial.h"
+#include "loader.h"
+
+static struct ramfs_file files[MAX_RAMFS_FILES];
+static uint32_t file_count = 0;
+static struct file_operations ramfs_ops;
+
+static struct ramfs_private ramfs_handles[MAX_OPEN_FILES];
+
+struct file_operations* ramfs_get_ops(void) {
+    return &ramfs_ops;
+}
+
+static struct ramfs_file* ramfs_find_file(const char* path) {
+    // 跳过前导 '/'
+    const char* filename = path;
+    while (*filename == '/') filename++;
+    
+    for (uint32_t i = 0; i < file_count; i++) {
+        if (strcmp(files[i].name, filename) == 0) {
+            return &files[i];
+        }
+    }
+    return NULL;
+}
+
+int ramfs_open(const char* path, int flags) {
+    struct ramfs_file* file = ramfs_find_file(path);
+    if (!file) return ENOENT;
+    
+    // 检查权限
+    if ((flags & O_WRONLY) && (file->mode & 0222) == 0) {
+        return EACCES; // 尝试写入只读文件
+    }
+    
+    // 查找空闲句柄
+    int handle = -1;
+    for (int i = 0; i < MAX_OPEN_FILES; i++) {
+        if (ramfs_handles[i].file == NULL) {
+            handle = i;
+            break;
+        }
+    }
+    if (handle == -1) return EMFILE;
+    
+    ramfs_handles[handle].file = file;
+    ramfs_handles[handle].pos = 0;
+    
+    serial_printf(COM1, "RAMFS: Opened '%s' -> handle %d\n", path, handle);
+    return handle;
+}
+
+int ramfs_close(int handle) {
+    if (handle < 0 || handle >= MAX_OPEN_FILES || !ramfs_handles[handle].file) {
+        return EBADF;
+    }
+    
+    ramfs_handles[handle].file = NULL;
+    ramfs_handles[handle].pos = 0;
+    return 0;
+}
+
+int ramfs_read(int handle, void* buf, uint32_t count) {
+    if (handle < 0 || handle >= MAX_OPEN_FILES || !ramfs_handles[handle].file) {
+        return EBADF;
+    }
+    
+    struct ramfs_private* priv = &ramfs_handles[handle];
+    struct ramfs_file* file = priv->file;
+    
+    if (priv->pos >= file->size) return 0;
+    
+    uint32_t to_read = count;
+    if (priv->pos + to_read > file->size) {
+        to_read = file->size - priv->pos;
+    }
+    
+    memcpy(buf, file->data + priv->pos, to_read);
+    priv->pos += to_read;
+    
+    return to_read;
+}
+
+int ramfs_write(int handle, const void* buf, uint32_t count) {
+    // RAMFS 是只读的
+    (void)handle;
+    (void)buf;
+    (void)count;
+    return EACCES;
+}
+
+int ramfs_seek(int handle, int offset, int whence) {
+    if (handle < 0 || handle >= MAX_OPEN_FILES || !ramfs_handles[handle].file) {
+        return EBADF;
+    }
+    
+    struct ramfs_private* priv = &ramfs_handles[handle];
+    struct ramfs_file* file = priv->file;
+    
+    switch (whence) {
+        case 0: // SEEK_SET
+            priv->pos = offset;
+            break;
+        case 1: // SEEK_CUR
+            priv->pos += offset;
+            break;
+        case 2: // SEEK_END
+            priv->pos = file->size + offset;
+            break;
+        default:
+            return EINVAL;
+    }
+    
+    // 确保位置在有效范围内
+    if (priv->pos > file->size) priv->pos = file->size;
+    
+    return priv->pos;
+}
+
+int ramfs_ioctl(int handle, int request, void* argp) {
+    // RAMFS 不支持 ioctl
+    (void)handle;
+    (void)request;
+    (void)argp;
+    return EINVAL;
+}
+
+int ramfs_stat(const char* path, struct file_stat* stat) {
+    struct ramfs_file* file = ramfs_find_file(path);
+    if (!file) return ENOENT;
+    
+    stat->size = file->size;
+    stat->mode = file->mode;
+    stat->type = file->type;
+    stat->inode = (uint32_t)file; // 使用地址作为inode
+    
+    return 0;
+}
+void ramfs_init(void) {
+    serial_printf(COM1, "RAMFS: Initializing RAM filesystem\n");
+    
+    memset(files, 0, sizeof(files));
+    memset(ramfs_handles, 0, sizeof(ramfs_handles));
+    file_count = 0;
+    
+    // 设置操作函数
+    ramfs_ops.open = ramfs_open;
+    ramfs_ops.close = ramfs_close;
+    ramfs_ops.read = ramfs_read;
+    ramfs_ops.write = ramfs_write;
+    ramfs_ops.seek = ramfs_seek;
+    ramfs_ops.ioctl = ramfs_ioctl;
+    ramfs_ops.stat = ramfs_stat;
+    
+    // 从loader注册所有模块为文件
+    extern uint32_t loader_get_module_count(void);
+    extern module_info_t* loader_get_module(uint32_t index);
+    
+    uint32_t mod_count = loader_get_module_count();
+    for (uint32_t i = 0; i < mod_count && file_count < MAX_RAMFS_FILES; i++) {
+        module_info_t* mod = loader_get_module(i);
+        if (mod) {
+            strncpy(files[file_count].name, mod->name, MAX_PATH - 1);
+            files[file_count].name[MAX_PATH - 1] = '\0';
+            files[file_count].data = (uint8_t*)mod->start;
+            files[file_count].size = mod->size;
+            files[file_count].mode = 0444; // 只读
+            files[file_count].type = FT_REGULAR;
+            file_count++;
+            
+            serial_printf(COM1, "RAMFS: Registered file '%s' (%d bytes)\n", 
+                         mod->name, mod->size);
+        }
+    }
+    
+    // 注册到VFS
+    vfs_register_fs("ramfs", &ramfs_ops);
+}// kernel/fs/test_fs.h
+#ifndef TEST_FS_H
+#define TEST_FS_H
+
+void test_filesystem_integration(void);
+void run_filesystem_tests(void);
+
+#endif// kernel/fs/ramfs.h
+#ifndef RAMFS_H
+#define RAMFS_H
+
+#include "types.h"
+#include "vfs.h"
+
+
+#define MAX_RAMFS_FILES 64
+
+
+struct ramfs_file {
+    char name[MAX_PATH];
+    uint8_t* data;
+    uint32_t size;
+    uint32_t mode;
+    uint32_t type;
+};
+
+struct ramfs_private {
+    struct ramfs_file* file;
+    uint32_t pos;
+};
+
+void ramfs_init(void);
+struct file_operations* ramfs_get_ops(void);
+
+#endif// kernel/fs/devfs.c
+#include "devfs.h"
+#include "vfs.h"
+#include "fb.h"
+#include "keyboard.h"
+#include "serial.h"
+#include "string.h"
+
+static struct file_operations devfs_ops;
+
+struct devfs_private {
+    int device;
+    uint32_t pos;
+};
+
+static struct devfs_private devfs_handles[MAX_OPEN_FILES];
+
+struct file_operations* devfs_get_ops(void) {
+    return &devfs_ops;
+}
+
+static int devfs_resolve_device(const char* path) {
+    if (strcmp(path, "/dev/console") == 0) return DEVICE_CONSOLE;
+    if (strcmp(path, "/dev/null") == 0) return DEVICE_NULL;
+    if (strcmp(path, "/dev/zero") == 0) return DEVICE_ZERO;
+    return -1;
+}
+
+int devfs_open(const char* path, int flags) {
+    (void)flags;
+    int device = devfs_resolve_device(path);
+    if (device == -1) return ENOENT;
+    
+    // 查找空闲句柄
+    int handle = -1;
+    for (int i = 0; i < MAX_OPEN_FILES; i++) {
+        if (devfs_handles[i].device == 0) {
+            handle = i;
+            break;
+        }
+    }
+    if (handle == -1) return EMFILE;
+    
+    devfs_handles[handle].device = device;
+    devfs_handles[handle].pos = 0;
+    
+    serial_printf(COM1, "DEVFS: Opened '%s' -> device %d, handle %d\n", 
+                 path, device, handle);
+    return handle;
+}
+
+int devfs_close(int handle) {
+    if (handle < 0 || handle >= MAX_OPEN_FILES || devfs_handles[handle].device == 0) {
+        return EBADF;
+    }
+    
+    devfs_handles[handle].device = 0;
+    devfs_handles[handle].pos = 0;
+    return 0;
+}
+
+int devfs_read(int handle, void* buf, uint32_t count) {
+    if (handle < 0 || handle >= MAX_OPEN_FILES || devfs_handles[handle].device == 0) {
+        return EBADF;
+    }
+    
+    int device = devfs_handles[handle].device;
+    char* buffer = (char*)buf;
+    
+    switch (device) {
+        case DEVICE_CONSOLE:
+            // 从键盘读取
+            {
+                uint32_t read_count = 0;
+                while (read_count < count) {
+                    char c = keyboard_get_char();
+                    if (c) {
+                        buffer[read_count++] = c;
+                        if (c == '\n') break;
+                    } else {
+                        break; // 无更多输入
+                    }
+                }
+                return read_count;
+            }
+            
+        case DEVICE_NULL:
+            return 0; // 总是返回EOF
+            
+        case DEVICE_ZERO:
+            // 返回零字节
+            memset(buf, 0, count);
+            return count;
+            
+        default:
+            return EIO;
+    }
+}
+
+int devfs_write(int handle, const void* buf, uint32_t count) {
+    if (handle < 0 || handle >= MAX_OPEN_FILES || devfs_handles[handle].device == 0) {
+        return EBADF;
+    }
+    
+    int device = devfs_handles[handle].device;
+    const char* buffer = (const char*)buf;
+    
+    switch (device) {
+        case DEVICE_CONSOLE:
+            // 写入控制台
+            for (uint32_t i = 0; i < count; i++) {
+                fb_putchar(buffer[i]);
+            }
+            return count;
+            
+        case DEVICE_NULL:
+            return count; // 数据被丢弃
+            
+        case DEVICE_ZERO:
+            return count; // 写入 /dev/zero 成功但无效果
+            
+        default:
+            return EIO;
+    }
+}
+
+int devfs_seek(int handle, int offset, int whence) {
+    // 设备文件通常不支持seek
+    (void)handle;
+    (void)offset;
+    (void)whence;
+    return EINVAL;
+}
+
+int devfs_ioctl(int handle, int request, void* argp) {
+    if (handle < 0 || handle >= MAX_OPEN_FILES || devfs_handles[handle].device == 0) {
+        return EBADF;
+    }
+    
+    // 简单的控制台控制
+    if (devfs_handles[handle].device == DEVICE_CONSOLE) {
+        switch (request) {
+            case 1: // 清屏
+                fb_clear();
+                return 0;
+            case 2: // 获取光标位置
+                if (argp) {
+                    *(uint32_t*)argp = 0; // 简化实现
+                    return 0;
+                }
+                break;
+        }
+    }
+    
+    return EINVAL;
+}
+
+int devfs_stat(const char* path, struct file_stat* stat) {
+    int device = devfs_resolve_device(path);
+    if (device == -1) return ENOENT;
+    
+    stat->size = 0; // 设备文件没有大小
+    stat->mode = 0666; // 所有用户可读写
+    stat->type = FT_CHAR_DEVICE;
+    stat->inode = device;
+    
+    return 0;
+}
+
+void devfs_init(void) {
+    serial_printf(COM1, "DEVFS: Initializing device filesystem\n");
+    
+    memset(devfs_handles, 0, sizeof(devfs_handles));
+    
+    // 设置操作函数
+    devfs_ops.open = devfs_open;
+    devfs_ops.close = devfs_close;
+    devfs_ops.read = devfs_read;
+    devfs_ops.write = devfs_write;
+    devfs_ops.seek = devfs_seek;
+    devfs_ops.ioctl = devfs_ioctl;
+    devfs_ops.stat = devfs_stat;
+    
+    // 注册到VFS
+    vfs_register_fs("devfs", &devfs_ops);
+}// kernel/fs/vfs.c
+#include "vfs.h"
+#include "string.h"
+#include "serial.h"
+#include "fb.h"
+#include "kmalloc.h"
+
+static struct filesystem* fs_list = NULL;
+static struct file_handle open_files[MAX_OPEN_FILES];
+
+void vfs_init(void) {
+    serial_printf(COM1, "VFS: Initializing Virtual Filesystem\n");
+    
+    memset(open_files, 0, sizeof(open_files));
+    fs_list = NULL;
+    
+    // 初始化标准文件描述符
+    open_files[STDIN_FILENO].fs = NULL;
+    open_files[STDIN_FILENO].flags = O_RDONLY;
+    open_files[STDIN_FILENO].ref_count = 1;
+    
+    open_files[STDOUT_FILENO].fs = NULL;
+    open_files[STDOUT_FILENO].flags = O_WRONLY;
+    open_files[STDOUT_FILENO].ref_count = 1;
+    
+    open_files[STDERR_FILENO].fs = NULL;
+    open_files[STDERR_FILENO].flags = O_WRONLY;
+    open_files[STDERR_FILENO].ref_count = 1;
+}
+
+int vfs_register_fs(const char* name, struct file_operations* ops) {
+    if (!name || !ops) return EINVAL;
+    
+    struct filesystem* new_fs = (struct filesystem*)kmalloc(sizeof(struct filesystem));
+    if (!new_fs) return EMFILE;
+    
+    strncpy(new_fs->name, name, MAX_FS_NAME - 1);
+    new_fs->name[MAX_FS_NAME - 1] = '\0';
+    new_fs->ops = ops;
+    new_fs->next = fs_list;
+    fs_list = new_fs;
+    
+    serial_printf(COM1, "VFS: Registered filesystem '%s'\n", name);
+    return 0;
+}
+
+static struct filesystem* vfs_resolve_fs(const char* path) {
+    // 简单的路径解析：/dev/ 使用 devfs，其他使用 ramfs
+    if (strncmp(path, "/dev/", 5) == 0) {
+        struct filesystem* fs = fs_list;
+        while (fs) {
+            if (strcmp(fs->name, "devfs") == 0) return fs;
+            fs = fs->next;
+        }
+    } else {
+        struct filesystem* fs = fs_list;
+        while (fs) {
+            if (strcmp(fs->name, "ramfs") == 0) return fs;
+            fs = fs->next;
+        }
+    }
+    return NULL;
+}
+
+int vfs_open(const char* path, int flags) {
+    if (!path) return EINVAL;
+    
+    struct filesystem* fs = vfs_resolve_fs(path);
+    if (!fs || !fs->ops || !fs->ops->open) return ENOENT;
+    
+    // 查找空闲文件描述符
+    int fd = -1;
+    for (int i = 3; i < MAX_OPEN_FILES; i++) {
+        if (open_files[i].ref_count == 0) {
+            fd = i;
+            break;
+        }
+    }
+    if (fd == -1) return EMFILE;
+    
+    int result = fs->ops->open(path, flags);
+    if (result < 0) return result;
+    
+    open_files[fd].fs = fs;
+    open_files[fd].private_data = (void*)result;
+    open_files[fd].pos = 0;
+    open_files[fd].flags = flags;
+    open_files[fd].ref_count = 1;
+    
+    serial_printf(COM1, "VFS: Opened '%s' -> fd %d\n", path, fd);
+    return fd;
+}
+
+int vfs_close(int fd) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || open_files[fd].ref_count == 0) {
+        return EBADF;
+    }
+    
+    if (--open_files[fd].ref_count > 0) {
+        return 0; // 还有引用，不真正关闭
+    }
+    
+    struct file_handle* fh = &open_files[fd];
+    if (fh->fs && fh->fs->ops && fh->fs->ops->close) {
+        fh->fs->ops->close((int)fh->private_data);
+    }
+    
+    memset(fh, 0, sizeof(struct file_handle));
+    serial_printf(COM1, "VFS: Closed fd %d\n", fd);
+    return 0;
+}
+
+int vfs_read(int fd, void* buf, uint32_t count) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || open_files[fd].ref_count == 0) {
+        return EBADF;
+    }
+    
+    struct file_handle* fh = &open_files[fd];
+    if (!(fh->flags & O_RDONLY) && !(fh->flags & O_RDWR)) {
+        return EACCES;
+    }
+    
+    if (!fh->fs || !fh->fs->ops || !fh->fs->ops->read) {
+        return EIO;
+    }
+    
+    int result = fh->fs->ops->read((int)fh->private_data, buf, count);
+    if (result > 0) {
+        fh->pos += result;
+    }
+    
+    return result;
+}
+
+int vfs_write(int fd, const void* buf, uint32_t count) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || open_files[fd].ref_count == 0) {
+        return EBADF;
+    }
+    
+    struct file_handle* fh = &open_files[fd];
+    if (!(fh->flags & O_WRONLY) && !(fh->flags & O_RDWR)) {
+        return EACCES;
+    }
+    
+    if (fd == STDOUT_FILENO || fd == STDERR_FILENO) {
+        // 标准输出直接处理
+        char* str = (char*)buf;
+        for (uint32_t i = 0; i < count; i++) {
+            fb_putchar(str[i]);
+        }
+        return count;
+    }
+    
+    if (!fh->fs || !fh->fs->ops || !fh->fs->ops->write) {
+        return EIO;
+    }
+    
+    int result = fh->fs->ops->write((int)fh->private_data, buf, count);
+    if (result > 0) {
+        fh->pos += result;
+    }
+    
+    return result;
+}
+
+int vfs_seek(int fd, int offset, int whence) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || open_files[fd].ref_count == 0) {
+        return EBADF;
+    }
+    
+    struct file_handle* fh = &open_files[fd];
+    if (!fh->fs || !fh->fs->ops || !fh->fs->ops->seek) {
+        return EIO;
+    }
+    
+    return fh->fs->ops->seek((int)fh->private_data, offset, whence);
+}
+
+int vfs_ioctl(int fd, int request, void* argp) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || open_files[fd].ref_count == 0) {
+        return EBADF;
+    }
+    
+    struct file_handle* fh = &open_files[fd];
+    if (!fh->fs || !fh->fs->ops || !fh->fs->ops->ioctl) {
+        return EINVAL;
+    }
+    
+    return fh->fs->ops->ioctl((int)fh->private_data, request, argp);
+}
+
+int vfs_stat(const char* path, struct file_stat* stat) {
+    if (!path || !stat) return EINVAL;
+    
+    struct filesystem* fs = vfs_resolve_fs(path);
+    if (!fs || !fs->ops || !fs->ops->stat) return ENOENT;
+    
+    return fs->ops->stat(path, stat);
+}// kernel/fs/devfs.h
+#ifndef DEVFS_H
+#define DEVFS_H
+
+#include "types.h"
+
+void devfs_init(void);
+struct file_operations* devfs_get_ops(void);
+
+// 设备号定义
+#define DEVICE_CONSOLE   1
+#define DEVICE_NULL      2
+#define DEVICE_ZERO      3
+
+#endif// kernel/fs/vfs.h
+#ifndef VFS_H
+#define VFS_H
+
+#include "types.h"
+
+#define MAX_FS_NAME 16
+#define MAX_PATH 256
+#define MAX_OPEN_FILES 32
+
+// 文件打开标志
+#define O_RDONLY    0x0001
+#define O_WRONLY    0x0002  
+#define O_RDWR      0x0003
+#define O_CREAT     0x0004
+#define O_APPEND    0x0008
+#define O_TRUNC     0x0010
+
+// 文件类型
+#define FT_UNKNOWN  0
+#define FT_REGULAR  1
+#define FT_DIRECTORY 2
+#define FT_CHAR_DEVICE 3
+
+// 标准文件描述符
+#define STDIN_FILENO  0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
+
+// 错误代码
+#define ENOENT      -1  // 文件不存在
+#define EACCES      -2  // 权限不足  
+#define EMFILE      -3  // 文件描述符用完
+#define EBADF       -4  // 错误的文件描述符
+#define EINVAL      -5  // 无效参数
+#define EIO         -6  // I/O错误
+
+struct file_stat {
+    uint32_t size;
+    uint32_t mode;
+    uint32_t type;
+    uint32_t inode;
+};
+
+struct filesystem {
+    char name[MAX_FS_NAME];
+    struct file_operations* ops;
+    struct filesystem* next;
+};
+
+struct file_handle {
+    struct filesystem* fs;
+    void* private_data;  // 文件系统私有数据
+    uint32_t pos;
+    uint32_t flags;
+    int ref_count;
+};
+
+struct file_operations {
+    int (*open)(const char* path, int flags);
+    int (*close)(int fd);
+    int (*read)(int fd, void* buf, uint32_t count);
+    int (*write)(int fd, const void* buf, uint32_t count);
+    int (*seek)(int fd, int offset, int whence);
+    int (*ioctl)(int fd, int request, void* argp);
+    int (*stat)(const char* path, struct file_stat* stat);
+};
+
+// VFS 公共接口
+void vfs_init(void);
+int vfs_register_fs(const char* name, struct file_operations* ops);
+int vfs_open(const char* path, int flags);
+int vfs_close(int fd);
+int vfs_read(int fd, void* buf, uint32_t count);
+int vfs_write(int fd, const void* buf, uint32_t count);
+int vfs_seek(int fd, int offset, int whence);
+int vfs_ioctl(int fd, int request, void* argp);
+int vfs_stat(const char* path, struct file_stat* stat);
+
+#endif// kernel/fs/test_fs.c
+#include "test_fs.h"
+#include "vfs.h"
+#include "ramfs.h"
+#include "devfs.h"
+#include "serial.h"
+#include "string.h"
+
+void test_filesystem_integration(void) {
+    serial_printf(COM1, "\n=== Filesystem Integration Test ===\n");
+    
+    // 测试1: 文件状态查询
+    serial_printf(COM1, "Test 1: File stat...\n");
+    struct file_stat stat;
+    int result = vfs_stat("hello", &stat);
+    if (result == 0) {
+        serial_printf(COM1, "  File 'hello': size=%d, mode=0x%x, type=%d\n", 
+                     stat.size, stat.mode, stat.type);
+    } else {
+        serial_printf(COM1, "  ERROR: Cannot stat file 'hello'\n");
+    }
+    
+    // 测试2: 打开和读取文件
+    serial_printf(COM1, "Test 2: File open and read...\n");
+    int fd = vfs_open("hello", O_RDONLY);
+    if (fd >= 0) {
+        char buffer[128];
+        int bytes_read = vfs_read(fd, buffer, sizeof(buffer) - 1);
+        if (bytes_read > 0) {
+            buffer[bytes_read] = '\0';
+            serial_printf(COM1, "  Read %d bytes: %s\n", bytes_read, buffer);
+        }
+        vfs_close(fd);
+    } else {
+        serial_printf(COM1, "  ERROR: Cannot open file 'hello'\n");
+    }
+    
+    // 测试3: 设备文件操作
+    serial_printf(COM1, "Test 3: Device files...\n");
+    int console_fd = vfs_open("/dev/console", O_WRONLY);
+    if (console_fd >= 0) {
+        const char* msg = "Kernel: Writing to console via VFS!\n";
+        vfs_write(console_fd, msg, strlen(msg));
+        vfs_close(console_fd);
+        serial_printf(COM1, "  Console device test passed\n");
+    } else {
+        serial_printf(COM1, "  ERROR: Cannot open /dev/console\n");
+    }
+    
+    // 测试4: 标准输出
+    serial_printf(COM1, "Test 4: Standard output...\n");
+    const char* stdout_msg = "Kernel: This goes to stdout\n";
+    vfs_write(STDOUT_FILENO, stdout_msg, strlen(stdout_msg));
+    
+    serial_printf(COM1, "=== Filesystem Integration Test Complete ===\n");
+}
+
+void run_filesystem_tests(void) {
+    serial_printf(COM1, "\n");
+    serial_printf(COM1, "=========================================\n");
+    serial_printf(COM1, "Starting Filesystem Tests\n");
+    serial_printf(COM1, "=========================================\n");
+    
+    test_filesystem_integration();
+    
+    serial_printf(COM1, "\n");
+    serial_printf(COM1, "=========================================\n");
+    serial_printf(COM1, "Filesystem Tests Completed!\n");
+    serial_printf(COM1, "=========================================\n");
+}// kernel/mm/temp_mapping.h
+#ifndef TEMP_MAPPING_H
+#define TEMP_MAPPING_H
+
+#include "types.h"
+#include "spinlock.h"
+
+#define TEMP_MAPPING_ADDR 0xC03FF000  // 临时映射的虚拟地址
+#define TEMP_MAPPING_COUNT 4          // 支持多个临时映射槽
+
+// 临时映射管理结构
+struct temp_mapping_manager {
+    spinlock_t lock;
+    uint32_t available_slots;         // 位图，标记哪些槽可用
+    uint32_t ref_count[TEMP_MAPPING_COUNT]; // 引用计数
+};
+
+// 函数声明
+void temp_mapping_init(void);
+uint32_t temp_map_page(uint32_t physical_addr);
+void temp_unmap_page(uint32_t virtual_addr);
+void* temp_get_mapping(uint32_t physical_addr);
+
+// 内部页表操作函数
+void map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags);
+void unmap_page(uint32_t virtual_addr);
+
+extern struct temp_mapping_manager temp_mgr;
+
+#endif
+#ifndef VMM_H
+#define VMM_H
+
+#include <types.h>
+
+uint32_t vmm_create_user_space(void);
+void vmm_destroy_user_space(uint32_t page_dir);
+int vmm_load_user_program(uint32_t page_dir, uint32_t binary_phys, uint32_t size);
+
+#endif// kernel/mm/pmm.h
+#ifndef PMM_H
+#define PMM_H
+
+#include "types.h"
+#include "spinlock.h"
+#include "list.h"
+
+#define MAX_ORDER       11      // 最大阶数：2^11 = 2048 页 = 8MB
+#define BUDDY_MAX_ORDER MAX_ORDER
+
+// 伙伴系统空闲链表
+struct free_area {
+    struct list_head free_list;  // 空闲页链表
+    uint32_t nr_free;           // 空闲页块数量
+};
+
+// 页帧结构（放在每个空闲页的开头）
+struct page {
+    struct list_head list;      // 链表节点
+    uint32_t order;             // 所属阶数
+    uint32_t flags;             // 标志位
+};
+
+// 伙伴系统主结构
+struct buddy_system {
+    spinlock_t lock;                    // 自旋锁
+    uint32_t total_pages;              // 总页数
+    uint32_t managed_pages;            // 管理的页数  
+    uint32_t base_addr;                // 管理区域的基地址
+    struct free_area free_area[MAX_ORDER + 1];  // 各阶空闲链表
+    uint8_t* bitmap;                   // 位图，标记页的使用情况
+};
+
+// 函数声明
+void pmm_init(uint32_t memory_start, uint32_t memory_end);
+uint32_t pmm_alloc_pages(uint32_t order);
+void pmm_free_pages(uint32_t page_addr, uint32_t order);
+void pmm_stats(void);
+
+// 工具函数
+uint32_t find_buddy_pfn(uint32_t page_idx, uint32_t order);
+
+extern struct buddy_system buddy_sys;
+
+#endif
+// kernel/mm/pmm.c
 #include "pmm.h"
 #include "string.h"
 #include "serial.h"
@@ -1703,7 +2855,19 @@ int vmm_load_user_program(uint32_t page_dir, uint32_t binary_phys, uint32_t size
     temp_unmap_page(temp_dst);
     
     return 1;
-}// kernel/mm/kmalloc.c
+}// kernel/mm/test_mm.h
+#ifndef TEST_MM_H
+#define TEST_MM_H
+
+// 测试函数声明
+void run_all_memory_tests(void);
+void test_buddy_system(void);
+void test_temp_mapping(void);
+void test_kmalloc(void);
+void test_integration(void);
+
+#endif
+// kernel/mm/kmalloc.c
 #include "kmalloc.h"
 #include "string.h"
 #include "serial.h"
@@ -2085,6 +3249,71 @@ void unmap_page(uint32_t virtual_addr) {
     // 刷新TLB
     asm volatile("invlpg (%0)" : : "r" (virtual_addr) : "memory");
 }
+// kernel/mm/kmalloc.h
+#ifndef KMALLOC_H
+#define KMALLOC_H
+
+#include "types.h"
+#include "pmm.h"
+#include "spinlock.h"
+#include "list.h"
+
+#define KMALLOC_MIN_SIZE   16      // 最小分配大小
+#define KMALLOC_MAX_SIZE   (4 * 1024 * 1024) // 最大分配大小 4MB
+
+// 内存块头结构
+struct kmalloc_header {
+    size_t size;                    // 块大小（包括头部）
+    uint8_t is_free;               // 是否空闲
+    struct kmalloc_header* next;   // 下一个块
+    struct kmalloc_header* prev;   // 前一个块
+};
+
+// 堆管理结构
+struct heap_manager {
+    spinlock_t lock;               // 自旋锁
+    struct kmalloc_header* head;   // 堆链表头
+    uint32_t total_allocated;      // 总分配字节数
+    uint32_t total_freed;          // 总释放字节数
+    uint32_t current_usage;        // 当前使用量
+};
+
+// 函数声明
+void kmalloc_init(void);
+void* kmalloc(size_t size);
+void kfree(void* ptr);
+void* kcalloc(size_t num, size_t size);
+void* krealloc(void* ptr, size_t size);
+void kmalloc_stats(void);
+
+extern struct heap_manager heap_mgr;
+
+#endif
+// kernel/include/spinlock.h
+#ifndef SPINLOCK_H
+#define SPINLOCK_H
+
+#include "types.h"
+
+typedef struct {
+    volatile uint32_t lock;
+} spinlock_t;
+
+static inline void spinlock_init(spinlock_t *lock) {
+    lock->lock = 0;
+}
+
+static inline void spinlock_acquire(spinlock_t *lock) {
+    while (__sync_lock_test_and_set(&lock->lock, 1)) {
+        asm volatile("pause");
+    }
+}
+
+static inline void spinlock_release(spinlock_t *lock) {
+    __sync_lock_release(&lock->lock);
+}
+
+#endif
 // kernel/mm/test_mm.c
 #include "pmm.h"
 #include "temp_mapping.h"
@@ -2422,19 +3651,46 @@ syscall_entry:
     
     iret
 
-; 简单的系统调用测试函数（可选）
-global syscall_invoke
-syscall_invoke:
-    mov eax, [esp+4]    ; 系统调用号
-    mov ebx, [esp+8]    ; 参数1
-    mov ecx, [esp+12]   ; 参数2  
-    mov edx, [esp+16]   ; 参数3
-    int 0x80
-    ret#include "syscall.h"
+#ifndef SYSCALL_H
+#define SYSCALL_H
+
+#include <types.h>
+
+// 系统调用号定义
+#define SYSCALL_EXIT     1
+#define SYSCALL_PUTS     2
+#define SYSCALL_GETC     3
+#define SYSCALL_PUTCHAR  4
+#define SYSCALL_GETPID   5
+
+#define SYSCALL_OPEN    10
+#define SYSCALL_CLOSE   11
+#define SYSCALL_READ    12
+#define SYSCALL_WRITE   13
+#define SYSCALL_SEEK    14
+#define SYSCALL_IOCTL   15
+#define SYSCALL_STAT    16
+
+struct regs {
+    uint32_t gs, fs, es, ds;      // 段寄存器
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;  // 通用寄存器
+    uint32_t int_no, err_code;    // 中断号和错误码
+    uint32_t eip, cs, eflags, useresp, ss;  // 自动压栈的寄存器
+};
+
+
+// 系统调用初始化
+void syscall_init(void);
+
+// 系统调用处理函数（由汇编调用）
+void syscall_handler(struct regs *r);
+
+#endif#include "syscall.h"
 #include "process.h"
 #include "serial.h"
 #include "fb.h"
 #include "keyboard.h"
+#include "vfs.h"
 
 void syscall_handler(struct regs *r) {
     uint32_t syscall_num = r->eax;
@@ -2455,6 +3711,8 @@ void syscall_handler(struct regs *r) {
             break;
             
         case SYSCALL_PUTS:
+
+            serial_printf(COM1, "SYSCALL_PUTS: direct access to user pointer 0x%x\n", arg1);
             if (arg1) {
                 char* str = (char*)arg1;
                 serial_printf(COM1, "[USER%d OUTPUT] %s\n", pid, str);
@@ -2487,6 +3745,96 @@ void syscall_handler(struct regs *r) {
         case SYSCALL_GETPID:
             serial_printf(COM1, "SYSCALL: Process %d requested PID\n", pid);
             r->eax = pid;  // 通过 eax 返回 PID
+            break;
+
+        case SYSCALL_OPEN:
+            if (arg1) {
+                char* filename = (char*)arg1;
+                int fd = vfs_open(filename, arg2);
+                r->eax = fd;
+                serial_printf(COM1, "SYSCALL: Process %d opened '%s' (flags: 0x%x) -> fd %d\n", 
+                            pid, filename, arg2, fd);
+            } else {
+                r->eax = EINVAL;
+            }
+            break;
+
+        case SYSCALL_CLOSE:
+            r->eax = vfs_close(arg1);
+            serial_printf(COM1, "SYSCALL: Process %d closed fd %d\n", pid, arg1);
+            break;
+
+        case SYSCALL_READ:
+            {
+                int fd = arg1;
+                char* buf = (char*)arg2;
+                uint32_t count = arg3;
+                
+                if (!buf) {
+                    r->eax = EINVAL;
+                    break;
+                }
+                
+                int bytes_read = vfs_read(fd, buf, count);
+                r->eax = bytes_read;
+                
+                if (bytes_read > 0) {
+                    serial_printf(COM1, "SYSCALL: Process %d read %d bytes from fd %d\n", 
+                                pid, bytes_read, fd);
+                }
+            }
+            break;
+        case SYSCALL_WRITE:
+            {
+                int fd = arg1;
+                const char* buf = (const char*)arg2;
+                uint32_t count = arg3;
+                
+                if (!buf) {
+                    r->eax = EINVAL;
+                    break;
+                }
+                
+                int bytes_written = vfs_write(fd, buf, count);
+                r->eax = bytes_written;
+                
+                if (bytes_written > 0 && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
+                    serial_printf(COM1, "SYSCALL: Process %d wrote %d bytes to fd %d\n", 
+                                pid, bytes_written, fd);
+                }
+            }
+            break;
+
+        case SYSCALL_SEEK:
+            {
+                int fd = arg1;
+                int offset = arg2;
+                int whence = arg3;
+                r->eax = vfs_seek(fd, offset, whence);
+            }
+            break;
+
+        case SYSCALL_IOCTL:
+            {
+                int fd = arg1;
+                int request = arg2;
+                void* argp = (void*)arg3;
+                r->eax = vfs_ioctl(fd, request, argp);
+            }
+            break;
+
+        case SYSCALL_STAT:
+            {
+                const char* path = (const char*)arg1;
+                struct file_stat* stat = (struct file_stat*)arg2;
+                
+                if (!path || !stat) {
+                    r->eax = EINVAL;
+                    break;
+                }
+                
+                r->eax = vfs_stat(path, stat);
+            }
             break;
             
         default:
@@ -2572,7 +3920,381 @@ _start:
 section .data
 align 4
 welcome_msg db "MatrixOS User Program Started", 0
-info_msg    db "System calls working correctly!", 0; ============================================
+info_msg    db "System calls working correctly!", 0; user/programs/file_test.asm
+section .text
+bits 32
+global _start
+
+; 系统调用号
+SYS_EXIT    equ 1
+SYS_PUTS    equ 2
+SYS_PUTCHAR equ 4
+SYS_OPEN    equ 10
+SYS_CLOSE   equ 11
+SYS_READ    equ 12
+SYS_WRITE   equ 13
+SYS_SEEK    equ 14
+SYS_STAT    equ 16
+
+; 文件打开标志
+O_RDONLY    equ 0x0001
+O_WRONLY    equ 0x0002
+O_RDWR      equ 0x0003
+
+_start:
+    ; 显示测试开始信息
+    mov eax, SYS_PUTS
+    mov ebx, test_start_msg
+    int 0x80
+
+    ; ========== 测试1: 文件系统基本功能 ==========
+    mov eax, SYS_PUTS
+    mov ebx, test1_msg
+    int 0x80
+
+    ; 打开文件
+    mov eax, SYS_OPEN
+    mov ebx, filename
+    mov ecx, O_RDONLY
+    int 0x80
+
+    cmp eax, 0
+    jl .test1_fail
+
+    mov [file_fd], eax
+
+    ; 读取并显示文件内容
+    mov eax, SYS_PUTS
+    mov ebx, file_content_msg
+    int 0x80
+
+.read_loop:
+    mov eax, SYS_READ
+    mov ebx, [file_fd]
+    mov ecx, buffer
+    mov edx, 255
+    int 0x80
+
+    cmp eax, 0
+    jle .read_done
+
+    ; 显示读取的内容
+    mov byte [buffer + eax], 0 ; 添加字符串终止符
+    mov eax, SYS_PUTS
+    mov ebx, buffer
+    int 0x80
+
+    jmp .read_loop
+
+.read_done:
+    ; 关闭文件
+    mov eax, SYS_CLOSE
+    mov ebx, [file_fd]
+    int 0x80
+
+    mov eax, SYS_PUTS
+    mov ebx, test1_success_msg
+    int 0x80
+    jmp .test2
+
+.test1_fail:
+    mov eax, SYS_PUTS
+    mov ebx, test1_fail_msg
+    int 0x80
+
+    ; ========== 测试2: 设备文件系统 ==========
+.test2:
+    mov eax, SYS_PUTS
+    mov ebx, test2_msg
+    int 0x80
+
+    ; 打开控制台设备
+    mov eax, SYS_OPEN
+    mov ebx, dev_console
+    mov ecx, O_WRONLY
+    int 0x80
+
+    cmp eax, 0
+    jl .test2_fail
+
+    mov [dev_fd], eax
+
+    ; 写入控制台设备
+    mov eax, SYS_WRITE
+    mov ebx, [dev_fd]
+    mov ecx, dev_msg
+    mov edx, dev_msg_len
+    int 0x80
+
+    ; 关闭设备
+    mov eax, SYS_CLOSE
+    mov ebx, [dev_fd]
+    int 0x80
+
+    mov eax, SYS_PUTS
+    mov ebx, test2_success_msg
+    int 0x80
+    jmp .test3
+
+.test2_fail:
+    mov eax, SYS_PUTS
+    mov ebx, test2_fail_msg
+    int 0x80
+
+    ; ========== 测试3: 标准输入输出 ==========
+.test3:
+    mov eax, SYS_PUTS
+    mov ebx, test3_msg
+    int 0x80
+
+    ; 测试标准输出 (fd=1)
+    mov eax, SYS_WRITE
+    mov ebx, 1  ; STDOUT_FILENO
+    mov ecx, stdout_msg
+    mov edx, stdout_msg_len
+    int 0x80
+
+    ; 测试标准错误 (fd=2)
+    mov eax, SYS_WRITE
+    mov ebx, 2  ; STDERR_FILENO
+    mov ecx, stderr_msg
+    mov edx, stderr_msg_len
+    int 0x80
+
+    mov eax, SYS_PUTS
+    mov ebx, test3_success_msg
+    int 0x80
+
+    ; ========== 测试4: 文件定位 ==========
+.test4:
+    mov eax, SYS_PUTS
+    mov ebx, test4_msg
+    int 0x80
+
+    ; 重新打开文件测试seek
+    mov eax, SYS_OPEN
+    mov ebx, filename
+    mov ecx, O_RDONLY
+    int 0x80
+
+    cmp eax, 0
+    jl .test4_fail
+
+    mov [file_fd], eax
+
+    ; 读取文件开头
+    mov eax, SYS_READ
+    mov ebx, [file_fd]
+    mov ecx, buffer
+    mov edx, 10
+    int 0x80
+
+    mov byte [buffer + eax], 0
+    mov eax, SYS_PUTS
+    mov ebx, file_start_msg
+    int 0x80
+    mov eax, SYS_PUTS
+    mov ebx, buffer
+    int 0x80
+    mov eax, SYS_PUTCHAR
+    mov ebx, 0x0A
+    int 0x80
+
+    ; 关闭文件
+    mov eax, SYS_CLOSE
+    mov ebx, [file_fd]
+    int 0x80
+
+    mov eax, SYS_PUTS
+    mov ebx, test4_success_msg
+    int 0x80
+    jmp .test_complete
+
+.test4_fail:
+    mov eax, SYS_PUTS
+    mov ebx, test4_fail_msg
+    int 0x80
+
+    ; ========== 测试完成 ==========
+.test_complete:
+    mov eax, SYS_PUTS
+    mov ebx, test_complete_msg
+    int 0x80
+
+    ; 退出程序
+    mov eax, SYS_EXIT
+    mov ebx, 0
+    int 0x80
+
+section .data
+align 4
+; 测试消息
+test_start_msg      db "=== File System Test Start ===", 0x0A, 0
+test1_msg           db "Test 1: Basic file operations...", 0x0A, 0
+test1_success_msg   db "Test 1 PASSED: File read successful", 0x0A, 0
+test1_fail_msg      db "Test 1 FAILED: Cannot open file", 0x0A, 0
+test2_msg           db "Test 2: Device file system...", 0x0A, 0
+test2_success_msg   db "Test 2 PASSED: Device write successful", 0x0A, 0
+test2_fail_msg      db "Test 2 FAILED: Cannot open device", 0x0A, 0
+test3_msg           db "Test 3: Standard I/O...", 0x0A, 0
+test3_success_msg   db "Test 3 PASSED: Stdout/Stderr working", 0x0A, 0
+test4_msg           db "Test 4: File positioning...", 0x0A, 0
+test4_success_msg   db "Test 4 PASSED: File positioning working", 0x0A, 0
+test4_fail_msg      db "Test 4 FAILED: File positioning failed", 0x0A, 0
+test_complete_msg   db "=== All Tests Completed ===", 0x0A, 0
+
+; 文件内容显示消息
+file_content_msg    db "File content:", 0x0A, 0
+file_start_msg      db "First 10 bytes: ", 0
+
+; 文件名和设备名
+filename            db "hello", 0
+dev_console         db "/dev/console", 0
+
+; 测试消息
+dev_msg             db "This is written to /dev/console!", 0x0A, 0
+dev_msg_len         equ $ - dev_msg
+
+stdout_msg          db "This is stdout message", 0x0A, 0
+stdout_msg_len      equ $ - stdout_msg
+
+stderr_msg          db "This is stderr message", 0x0A, 0
+stderr_msg_len      equ $ - stderr_msg
+
+section .bss
+align 4
+file_fd     resd 1
+dev_fd      resd 1
+buffer      resb 256// include/string.h
+#ifndef STRING_H
+#define STRING_H
+
+#include "types.h"
+
+// 内存操作函数
+void* memset(void* ptr, int value, size_t num);
+void* memcpy(void* dest, const void* src, size_t num);
+void* memmove(void* dest, const void* src, size_t num);
+int memcmp(const void* ptr1, const void* ptr2, size_t num);
+
+// 字符串操作函数
+size_t strlen(const char* str);
+char* strcpy(char* dest, const char* src);
+char* strncpy(char* dest, const char* src, size_t num);
+char* strcat(char* dest, const char* src);
+int strcmp(const char* str1, const char* str2);
+int strncmp(const char* str1, const char* str2, size_t num);
+
+#endif
+#ifndef MULTIBOOT_H
+#define MULTIBOOT_H
+
+#include <types.h>
+
+#define MULTIBOOT_HEADER_MAGIC      0x1BADB002
+#define MULTIBOOT_BOOTLOADER_MAGIC  0x2BADB002
+
+typedef struct multiboot_info {
+    uint32_t flags;
+    uint32_t mem_lower;
+    uint32_t mem_upper;
+    uint32_t boot_device;
+    uint32_t cmdline;
+    uint32_t mods_count;
+    uint32_t mods_addr;
+    uint32_t num;
+    uint32_t size;
+    uint32_t addr;
+    uint32_t shndx;
+    uint32_t mmap_length;
+    uint32_t mmap_addr;
+    uint32_t drives_length;
+    uint32_t drives_addr;
+    uint32_t config_table;
+    uint32_t boot_loader_name;
+    uint32_t apm_table;
+    uint32_t vbe_control_info;
+    uint32_t vbe_mode_info;
+    uint32_t vbe_mode;
+    uint32_t vbe_interface_seg;
+    uint32_t vbe_interface_off;
+    uint32_t vbe_interface_len;
+} multiboot_info_t;
+
+typedef struct multiboot_module {
+    uint32_t mod_start;
+    uint32_t mod_end;
+    uint32_t string;
+    uint32_t reserved;
+} multiboot_module_t;
+
+#endif#ifndef TYPES_H
+#define TYPES_H
+
+/* 标准整数类型定义 */
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
+
+typedef char int8_t;
+typedef short int16_t;
+typedef int int32_t;
+typedef long long int64_t;
+
+/* 布尔类型 */
+typedef uint8_t bool;
+#define true 1
+#define false 0
+
+/* 大小类型 */
+typedef uint32_t size_t;
+
+/* 空指针类型 */
+typedef void* ptr_t;
+
+#define NULL ((void*)0)
+#define PAGE_SIZE 4096
+
+#endif /* TYPES_H */
+// kernel/include/list.h
+#ifndef LIST_H
+#define LIST_H
+
+struct list_head {
+    struct list_head *next, *prev;
+};
+
+#define LIST_HEAD_INIT(name) { &(name), &(name) }
+#define LIST_HEAD(name) struct list_head name = LIST_HEAD_INIT(name)
+
+static inline void list_init(struct list_head *head) {
+    head->next = head;
+    head->prev = head;
+}
+
+static inline void list_add(struct list_head *new, struct list_head *head) {
+    new->next = head->next;
+    new->prev = head;
+    head->next->prev = new;
+    head->next = new;
+}
+
+static inline void list_del(struct list_head *entry) {
+    entry->next->prev = entry->prev;
+    entry->prev->next = entry->next;
+    entry->next = entry->prev = NULL;
+}
+
+static inline int list_empty(struct list_head *head) {
+    return head->next == head;
+}
+
+#define list_for_each(pos, head) \
+    for (pos = (head)->next; pos != (head); pos = pos->next)
+
+#endif
+; ============================================
 ;  loader.asm - 支持 multiboot 模块的加载器
 ; ============================================
 
@@ -2798,4 +4520,173 @@ temporary_stack: resb 4096
 global kernel_stack_bottom
 kernel_stack_bottom: resb KERNEL_STACK_SIZE
 global kernel_stack_top
-kernel_stack_top:
+kernel_stack_top:# 工具配置
+CC = gcc
+AS = nasm 
+LD = ld
+
+# 编译标志
+CFLAGS = -m32 \
+         -nostdlib \
+         -nostdinc \
+         -fno-builtin \
+         -fno-stack-protector \
+         -nostartfiles \
+         -nodefaultlibs \
+         -Wall -Wextra -Werror \
+         -c \
+         -O0 \
+	 -g \
+         -Iinclude -Ikernel -Ikernel/drivers -Ikernel/interrupts -Ikernel/mm -Ikernel/process -Ikernel/fs -Ikernel/syscall -Ilib \
+         -fno-pic \
+         -fno-pie \
+         -static \
+         -fcf-protection=none
+
+LDFLAGS = -T link.ld -melf_i386
+ASFLAGS = -f elf32 -g
+
+# C源文件列表 - 添加新的用户模式模块
+KERNEL_C_SRCS = kernel/kmain.c \
+                kernel/drivers/fb.c \
+                kernel/drivers/serial.c \
+                kernel/interrupts/idt.c \
+                kernel/interrupts/interrupt.c \
+				kernel/interrupts/tss.c \
+                kernel/interrupts/pic.c \
+                kernel/interrupts/keyboard.c \
+		kernel/mm/kmalloc.c \
+		kernel/mm/pmm.c \
+		kernel/mm/temp_mapping.c \
+		kernel/mm/vmm.c \
+		kernel/mm/test_mm.c \
+		kernel/process/process.c \
+		kernel/process/loader.c \
+		kernel/syscall/syscall.c \
+		kernel/fs/vfs.c \
+		kernel/fs/ramfs.c \
+		kernel/fs/devfs.c \
+		kernel/fs/test_fs.c \
+		lib/string.c
+
+# 汇编源文件列表 - 添加用户模式相关汇编
+KERNEL_ASM_SRCS = kernel/drivers/io.asm \
+                  kernel/interrupts/interrupt_asm.asm \
+                  kernel/process/switch.asm \
+                  kernel/syscall/syscall_asm.asm \
+				  kernel/interrupts/tss_asm.asm 
+
+# 引导加载程序汇编文件
+BOOT_SRC = boot/loader.asm
+
+# 对象文件列表
+BOOT_OBJ = $(BOOT_SRC:.asm=.o)
+KERNEL_C_OBJS = $(KERNEL_C_SRCS:.c=.o)
+KERNEL_ASM_OBJS = $(KERNEL_ASM_SRCS:.asm=.o)
+OBJECTS = $(BOOT_OBJ) $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS)
+
+# 用户程序
+USER_PROGRAMS = user/programs/hello.asm user/programs/file_test.asm
+USER_BINS = $(patsubst user/programs/%.asm,user/build/%.bin,$(USER_PROGRAMS))
+
+# 默认目标
+all: user-programs kernel.elf
+
+# 内核ELF文件
+kernel.elf: $(OBJECTS)
+	$(LD) $(LDFLAGS) $(OBJECTS) -o kernel.elf
+
+# 编译用户程序
+user-programs: $(USER_PROGRAMS)
+	@mkdir -p user/build
+	$(foreach prog,$(USER_PROGRAMS),\
+		$(AS) -f bin $(prog) -o $(patsubst user/programs/%.asm,user/build/%.bin,$(prog));)
+
+
+# 创建ISO镜像（包含用户程序模块）
+os.iso: kernel.elf user-programs
+	@mkdir -p iso/boot/grub
+	cp kernel.elf iso/boot/kernel.elf
+	cp $(USER_BINS) iso/boot/
+	@echo 'set timeout=0' > iso/boot/grub/grub.cfg
+	@echo 'set default=0' >> iso/boot/grub/grub.cfg
+	@echo '' >> iso/boot/grub/grub.cfg
+	@echo 'menuentry "MatrixOS with File System" {' >> iso/boot/grub/grub.cfg
+	@echo '  multiboot /boot/kernel.elf' >> iso/boot/grub/grub.cfg
+	@echo '  module /boot/hello.bin hello' >> iso/boot/grub/grub.cfg
+	@echo '  module /boot/file_test.bin file_test' >> iso/boot/grub/grub.cfg
+	@echo '}' >> iso/boot/grub/grub.cfg
+	grub-mkrescue -o os.iso iso
+
+# 快速运行 QEMU（直接加载内核）- 不带模块
+qemu: kernel.elf
+	qemu-system-i386 -kernel kernel.elf -serial stdio -no-reboot -no-shutdown
+
+# 使用ISO运行QEMU（包含用户程序模块）
+qemu-iso: os.iso
+	qemu-system-i386 -cdrom os.iso -serial stdio -no-reboot -no-shutdown
+
+# ========== 新增：调试目标（包含用户模块）==========
+# 调试模式 - 使用ISO（推荐，包含用户模块）
+debug-iso: os.iso
+	qemu-system-i386 -cdrom os.iso \
+		-s -S \
+		-serial stdio \
+		-no-reboot \
+		-no-shutdown
+
+# 调试模式 - 直接加载内核和模块（使用initrd）
+debug-modules: kernel.elf user-programs
+	qemu-system-i386 -kernel kernel.elf \
+		-initrd $(USER_BINS) \
+		-append "modules=hello,file_test" \
+		-s -S \
+		-serial stdio \
+		-no-reboot \
+		-no-shutdown
+
+# 调试模式 - 传统方式（不包含模块）
+debug-qemu: kernel.elf
+	qemu-system-i386 -kernel kernel.elf \
+		-s -S \
+		-serial stdio \
+		-no-reboot \
+		-no-shutdown
+
+# 运行bochs
+run: os.iso
+	bochs -f bochsrc.txt -q
+
+# 编译规则
+%.o: %.c
+	$(CC) $(CFLAGS) $< -o $@
+
+%.o: %.asm
+	$(AS) $(ASFLAGS) $< -o $@
+
+# 清理
+clean:
+	find . -name "*.o" -delete
+	rm -f kernel.elf os.iso bochslog.txt com1.out $(USER_BIN)
+	rm -rf iso/ user/build/
+
+# 显示构建信息
+info:
+	@echo "=== Build Information ==="
+	@echo "C Sources: $(words $(KERNEL_C_SRCS)) files"
+	@echo "ASM Sources: $(words $(KERNEL_ASM_SRCS)) files"
+	@echo "User Programs: $(USER_PROGRAMS)"
+	@echo "User Binaries: $(USER_BINS)"
+	@echo "=== Debug Targets ==="
+	@echo "debug-iso     : Debug with ISO (includes user modules)"
+	@echo "debug-modules : Debug with direct module loading"
+	@echo "debug-qemu    : Debug kernel only (no modules)"
+
+# 快速构建（不清理）
+quick: $(OBJECTS)
+	$(LD) $(LDFLAGS) $(OBJECTS) -o kernel.elf
+
+# 删除中间文件时出错则中断
+.DELETE_ON_ERROR:
+
+.PHONY: all clean qemu debug-qemu debug-iso debug-modules run user-programs qemu-iso info quick
