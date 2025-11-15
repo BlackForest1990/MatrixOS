@@ -145,4 +145,6 @@
 
 
 对于具体的实现，请大家参考document文件夹里的操作系统开发总结，如果希望sponsor作者的，哥们也是大大的欢迎，哈哈哈哈。
+
+
 <img src="https://github.com/user-attachments/assets/7cd1338d-a078-4fa1-aaab-51896d492a0e" width="30%" alt="描述">
