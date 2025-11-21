@@ -39,5 +39,3 @@ switch_to_user_mode:
 
     ; 切换到用户模式
     iret
-
-; 删除下面的 syscall_entry 相关代码
