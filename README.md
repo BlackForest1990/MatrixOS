@@ -33,12 +33,30 @@ Debug: `make debug-iso`, `make debug-modules`, or `./debug.sh` with `.gdbinit`.
 
 Issues and PRs are welcome. Run `make all` before opening a PR; CI builds the same target on Ubuntu.
 
+## License
+
+Released under the [MIT License](LICENSE) unless stated otherwise in individual files.
+
+## GitHub metadata (copy-paste)
+
+In the repository **About** (gear icon): set **Description**, optionally **Website**, and add **Topics**.
+
+**Suggested description**
+
+> Educational 32-bit x86 hobby OS in C/NASM — Multiboot/GRUB, PMM/kmalloc/VMM, `int 0x80` syscalls, VFS (RAMFS/devfs), user demos under QEMU.
+
+**Suggested topics** (paste one by one or type; GitHub suggests matching tags)
+
+`osdev`, `operating-system`, `kernel`, `x86`, `i386`, `multiboot`, `grub`, `qemu`, `nasm`, `assembly`, `c`, `vfs`, `syscall`, `memory-management`, `bare-metal`, `hobby-os`, `educational`
+
 ---
 
 # 自己编写操作系统
 
 
 工作了很多年，其实对于底层的知识很欠缺，借助AI知识大发展，我可以很快的编写代码和定位问题，所以我就自己写了个操作系统，希望可以帮助大家对于底层知识的理解。
+
+源码以 **MIT** 开源，见仓库根目录 [`LICENSE`](LICENSE)。
 
 ## 系统架构概览
 
