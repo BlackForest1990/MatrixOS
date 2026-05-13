@@ -1,0 +1,25 @@
+# Build outputs
+*.o
+kernel.elf
+os.iso
+iso/
+
+# User program build dir
+user/build/
+
+# Logs and local debugger state
+*.log
+bochslog.txt
+com1.out
+.gdb_history
+
+# Generated / accidental dumps (regenerate locally if needed)
+allcode.txt
+
+# Optional local Bochs / legacy artifact (not built by this Makefile)
+stage2_eltorito
+
+# Editor / OS
+.DS_Store
+*.swp
+*~

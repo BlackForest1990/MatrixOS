@@ -145,7 +145,7 @@ run: os.iso
 # 清理
 clean:
 	find . -name "*.o" -delete
-	rm -f kernel.elf os.iso bochslog.txt com1.out $(USER_BIN)
+	rm -f kernel.elf os.iso bochslog.txt com1.out $(USER_BINS)
 	rm -rf iso/ user/build/
 
 # 显示构建信息

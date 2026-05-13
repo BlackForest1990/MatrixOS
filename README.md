@@ -1,3 +1,40 @@
+# MatrixOS
+
+[![CI](https://github.com/BlackForest1990/MatrixOS/actions/workflows/ci.yml/badge.svg)](https://github.com/BlackForest1990/MatrixOS/actions/workflows/ci.yml)
+
+Educational **32-bit x86 (i386)** hobby OS in **C + NASM**: Multiboot + GRUB, higher-half kernel, PMM / kmalloc / VMM, processes, `int 0x80` syscalls, VFS with RAMFS + devfs, and flat-binary user demos loaded via GRUB modules.
+
+**中文说明见下方** — the following sections keep the original Chinese documentation.
+
+## Quick start (Linux / macOS with deps)
+
+**Dependencies:** `gcc` with **32-bit** support (`gcc-multilib` on Debian/Ubuntu), `nasm`, `make`, `ld`. For ISO: `grub-mkrescue` (often `grub-pc-bin` / `xorriso`). For run: `qemu-system-i386`.
+
+```bash
+make all          # kernel.elf + user/build/*.bin
+make qemu         # kernel only, serial on stdio
+make os.iso       # needs grub-mkrescue
+make qemu-iso     # ISO with hello / file_test modules
+```
+
+Debug: `make debug-iso`, `make debug-modules`, or `./debug.sh` with `.gdbinit`.
+
+## Repository layout
+
+| Path | Role |
+|------|------|
+| `boot/` | Loader + GRUB config |
+| `kernel/` | `drivers`, `interrupts`, `mm`, `process`, `syscall`, `fs`, `kmain.c` |
+| `include/`, `lib/` | Shared headers and minimal libc bits |
+| `user/programs/` | Example user ASM (`hello`, `file_test`) |
+| `document/` | 中文开发总结 |
+
+## Contributing
+
+Issues and PRs are welcome. Run `make all` before opening a PR; CI builds the same target on Ubuntu.
+
+---
+
 # 自己编写操作系统
 
 
@@ -144,7 +181,7 @@
 *   文件系统集成(程序作为文件访问)
 
 
-对于具体的实现，请大家参考document文件夹里的操作系统开发总结，如果希望sponsor作者的，哥们也是大大的欢迎，哈哈哈哈。
+对于具体的实现，请大家参考 document 文件夹里的操作系统开发总结，如果希望 sponsor 作者的，哥们也是大大的欢迎，哈哈哈哈。
 
 
-<img src="https://github.com/user-attachments/assets/7cd1338d-a078-4fa1-aaab-51896d492a0e" width="30%" alt="描述">
+<img src="https://github.com/user-attachments/assets/7cd1338d-a078-4fa1-aaab-51896d492a0e" width="30%" alt="MatrixOS">
