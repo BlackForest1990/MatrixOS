@@ -1,49 +1,49 @@
-# MatrixOS 系统调用表（与代码一致）
+# MatrixOS system call table (matches the code)
 
-入口：**`int 0x80`**（用户态 `DPL=3` 可触发）。
+Entry: **`int 0x80`** (callable from user mode with **DPL=3**).
 
-寄存器约定：
+Register convention:
 
-| 寄存器 | 含义 |
-|--------|------|
-| `EAX` | 系统调用号 |
-| `EBX` | 第 1 个参数 |
-| `ECX` | 第 2 个参数 |
-| `EDX` | 第 3 个参数 |
-| `EAX`（返回） | 返回值；失败时多为 **负数**（与 `kernel/fs/vfs.h` 中 `ENOENT` 等一致）；未实现调用见下表 |
+| Register | Role |
+|----------|------|
+| `EAX` | System call number |
+| `EBX` | First argument |
+| `ECX` | Second argument |
+| `EDX` | Third argument |
+| `EAX` (return) | Return value; errors are usually **negative** (same convention as `kernel/fs/vfs.h`, e.g. `ENOENT`). Unknown calls: see table. |
 
-内核实现：`kernel/syscall/syscall.c`（`syscall_handler`）、编号定义：`kernel/syscall/syscall.h`。
-
----
-
-## 调用号一览
-
-| 号 | 名称 | 参数 | 返回值 / 说明 |
-|----|------|------|-----------------|
-| 1 | `SYSCALL_EXIT` | `ebx` = 退出码（当前内核仅日志） | 无返回（销毁当前进程） |
-| 2 | `SYSCALL_PUTS` | `ebx` = 用户空间字符串指针（教学版直接解引用） | 无 |
-| 3 | `SYSCALL_GETC` | 无 | `eax` = 字符；无键为 0 |
-| 4 | `SYSCALL_PUTCHAR` | `ebx` = 字符 | 无 |
-| 5 | `SYSCALL_GETPID` | 无 | `eax` = 当前 PID |
-| 10 | `SYSCALL_OPEN` | `ebx` = 路径串；`ecx` = flags（`O_RDONLY` 等） | `eax` = fd 或负数错误码 |
-| 11 | `SYSCALL_CLOSE` | `ebx` = fd | `eax` = 0 或负数错误码 |
-| 12 | `SYSCALL_READ` | `ebx` = fd；`ecx` = 缓冲区；`edx` = 长度 | `eax` = 读入字节数或错误码 |
-| 13 | `SYSCALL_WRITE` | `ebx` = fd；`ecx` = 缓冲区；`edx` = 长度 | `eax` = 写出字节数或错误码 |
-| 14 | `SYSCALL_SEEK` | `ebx` = fd；`ecx` = offset；`edx` = whence | `eax` = 新位置或错误码 |
-| 15 | `SYSCALL_IOCTL` | `ebx` = fd；`ecx` = request；`edx` = arg 指针 | `eax` = 由设备实现决定 |
-| 16 | `SYSCALL_STAT` | `ebx` = 路径；`ecx` = `struct file_stat*` | `eax` = 0 或负数错误码 |
-| 其他 | — | — | `eax` = `(uint32_t)-1`（未知调用） |
+Implementation: `kernel/syscall/syscall.c` (`syscall_handler`), numbers in `kernel/syscall/syscall.h`.
 
 ---
 
-## 用户程序中的 `equ`（须与上表一致）
+## Call numbers
 
-- `user/programs/hello.asm`：`SYS_EXIT=1`，`SYS_PUTS=2`，`SYS_PUTCHAR=4`。
-- `user/programs/file_test.asm`：含 `SYS_OPEN`…`SYS_STAT` 等；其中测试打开的文件名为 **`hello`**，须与 GRUB 模块在 RAMFS 中注册名一致（见 `include/boot_config.h` 的 `BOOT_DEMO_USER_MODULE_NAME`）。
+| # | Name | Arguments | Return / notes |
+|---|------|-------------|----------------|
+| 1 | `SYSCALL_EXIT` | `ebx` = exit code (kernel currently logs) | No return (destroys current process) |
+| 2 | `SYSCALL_PUTS` | `ebx` = user string pointer (teaching build: direct dereference) | — |
+| 3 | `SYSCALL_GETC` | — | `eax` = character, or `0` if none |
+| 4 | `SYSCALL_PUTCHAR` | `ebx` = character | — |
+| 5 | `SYSCALL_GETPID` | — | `eax` = current PID |
+| 10 | `SYSCALL_OPEN` | `ebx` = path; `ecx` = flags (`O_RDONLY`, …) | `eax` = fd or negative errno |
+| 11 | `SYSCALL_CLOSE` | `ebx` = fd | `eax` = `0` or negative errno |
+| 12 | `SYSCALL_READ` | `ebx` = fd; `ecx` = buffer; `edx` = length | `eax` = bytes read or errno |
+| 13 | `SYSCALL_WRITE` | `ebx` = fd; `ecx` = buffer; `edx` = length | `eax` = bytes written or errno |
+| 14 | `SYSCALL_SEEK` | `ebx` = fd; `ecx` = offset; `edx` = whence | `eax` = new offset or errno |
+| 15 | `SYSCALL_IOCTL` | `ebx` = fd; `ecx` = request; `edx` = arg pointer | `eax` = device-specific |
+| 16 | `SYSCALL_STAT` | `ebx` = path; `ecx` = `struct file_stat*` | `eax` = `0` or negative errno |
+| other | — | — | `eax` = `(uint32_t)-1` (unknown syscall) |
 
 ---
 
-## 与后续课程的关系
+## `equ` in user programs (must match this table)
 
-- 可把「未知调用」改为独立错误码并在用户态区分。
-- 可把 `PUTS` 等改为先 `copy_from_user`，再内核打印（当前为教学简化直接解引用）。
+- `user/programs/hello.asm`: `SYS_EXIT=1`, `SYS_PUTS=2`, `SYS_PUTCHAR=4`.
+- `user/programs/file_test.asm`: `SYS_OPEN` … `SYS_STAT`, etc. The test opens a file named **`hello`**, which must match the GRUB module name registered in RAMFS (see `BOOT_DEMO_USER_MODULE_NAME` in `include/boot_config.h`).
+
+---
+
+## Possible follow-ups (teaching)
+
+- Use a dedicated errno for unknown syscalls instead of `(uint32_t)-1`.
+- Add `copy_from_user` before kernel uses pointers like `SYSCALL_PUTS` (current code is simplified for teaching).

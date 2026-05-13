@@ -4,7 +4,7 @@
 
 Educational **32-bit x86 (i386)** hobby OS in **C + NASM**: Multiboot + GRUB, higher-half kernel, PMM / kmalloc / VMM, processes, `int 0x80` syscalls, VFS with RAMFS + devfs, and flat-binary user demos loaded via GRUB modules.
 
-**[简体中文（架构说明与作者序）](document/README.zh-CN.md)**
+Long-form design notes: **[document/os-development-summary.md](document/os-development-summary.md)** · Syscall reference: **[document/syscall-table.md](document/syscall-table.md)**
 
 ## Quick start (Linux / macOS)
 
@@ -54,7 +54,7 @@ Debug: `make debug-iso`, `make debug-modules` (QEMU `-s -S` for GDB), or `./debu
 | `kernel/` | `boot.c` (staged boot), `kmain.c`, `drivers`, `interrupts`, `mm`, `process`, `syscall`, `fs` |
 | `include/`, `lib/` | `boot_config.h`, shared headers, minimal libc |
 | `user/programs/` | Example user ASM (`hello`, `file_test`) |
-| `document/` | [Chinese README](document/README.zh-CN.md), [syscall table](document/syscall-table.md) (`int 0x80` numbers and register convention), dev notes |
+| `document/` | [OS development notes](document/os-development-summary.md), [syscall table](document/syscall-table.md) |
 
 ## Contributing
 
