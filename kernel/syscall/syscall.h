@@ -18,6 +18,11 @@
 #define SYSCALL_IOCTL   15
 #define SYSCALL_STAT    16
 
+/*
+ * int 0x80：eax=调用号，ebx/ecx/edx=参数；返回值在 eax。
+ * 编号与示例见 document/syscall-table.md。
+ */
+
 struct regs {
     uint32_t gs, fs, es, ds;      // 段寄存器
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;  // 通用寄存器

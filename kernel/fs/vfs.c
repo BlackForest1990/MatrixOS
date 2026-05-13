@@ -44,22 +44,25 @@ int vfs_register_fs(const char* name, struct file_operations* ops) {
     return 0;
 }
 
-static struct filesystem* vfs_resolve_fs(const char* path) {
-    // 简单的路径解析：/dev/ 使用 devfs，其他使用 ramfs
-    if (strncmp(path, "/dev/", 5) == 0) {
-        struct filesystem* fs = fs_list;
-        while (fs) {
-            if (strcmp(fs->name, "devfs") == 0) return fs;
-            fs = fs->next;
-        }
-    } else {
-        struct filesystem* fs = fs_list;
-        while (fs) {
-            if (strcmp(fs->name, "ramfs") == 0) return fs;
-            fs = fs->next;
+static struct filesystem* vfs_find_registered(const char* fs_name) {
+    for (struct filesystem* fs = fs_list; fs; fs = fs->next) {
+        if (strcmp(fs->name, fs_name) == 0) {
+            return fs;
         }
     }
     return NULL;
+}
+
+/*
+ * 路径 -> 已注册 filesystem 名（教学版硬编码规则）。
+ * 后续可改为：挂载表 + 最长前缀匹配，再 walk 到具体 fs。
+ */
+static struct filesystem* vfs_resolve_fs(const char* path) {
+    const char* name = "ramfs";
+    if (strncmp(path, "/dev/", 5) == 0) {
+        name = "devfs";
+    }
+    return vfs_find_registered(name);
 }
 
 int vfs_open(const char* path, int flags) {

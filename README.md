@@ -54,7 +54,7 @@ make qemu-iso     # ISO + GRUB 模块
 | `kernel/` | `boot.c`（分阶段启动）, `kmain.c`, `drivers`, `interrupts`, `mm`, `process`, `syscall`, `fs` |
 | `include/`, `lib/` | `boot_config.h`、公共头与最小 libc |
 | `user/programs/` | Example user ASM (`hello`, `file_test`) |
-| `document/` | 中文开发总结 |
+| `document/` | 中文开发总结；[`syscall-table.md`](document/syscall-table.md)（`int 0x80` 调用号与寄存器约定） |
 
 ## Contributing
 
@@ -162,6 +162,7 @@ In the repository **About** (gear icon): set **Description**, optionally **Websi
     *   INT 0x80软中断，DPL=3用户可访问
     *   支持进程控制、I/O操作、文件系统调用
     *   完整的寄存器上下文保存
+    *   调用号与参数约定见 [`document/syscall-table.md`](document/syscall-table.md)（须与 `kernel/syscall/syscall.h`、`user/programs/*.asm` 中 `equ` 一致）
 
 ### **5. 设备驱动**
 
