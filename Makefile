@@ -1,10 +1,22 @@
 # 工具配置
-CC = gcc
-AS = nasm 
-LD = ld
+# Linux: 系统 gcc/ld + -m32 / -melf_i386
+# macOS: Apple 自带工具链生成 Mach-O，无法链接本仓库的 ELF 内核；请用 Homebrew 的 i686-elf-* 交叉工具链
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  CC := i686-elf-gcc
+  LD := i686-elf-ld
+  KERNEL_ARCH_CFLAGS :=
+else
+  CC := gcc
+  LD := ld
+  KERNEL_ARCH_CFLAGS := -m32
+endif
+
+AS = nasm
 
 # 编译标志
-CFLAGS = -m32 \
+CFLAGS = $(KERNEL_ARCH_CFLAGS) \
+         -std=gnu11 \
          -nostdlib \
          -nostdinc \
          -fno-builtin \
@@ -24,8 +36,17 @@ CFLAGS = -m32 \
 LDFLAGS = -T link.ld -melf_i386
 ASFLAGS = -f elf32 -g
 
+# 演示：CONFIG_DEMO_STARTUP=0 关闭 RAMFS 串口演示与用户进程演示（仍初始化内核与 VFS）
+CONFIG_DEMO_STARTUP ?= 1
+ifneq ($(CONFIG_DEMO_STARTUP),0)
+CFLAGS += -DCONFIG_DEMO_STARTUP=1
+else
+CFLAGS += -DCONFIG_DEMO_STARTUP=0
+endif
+
 # C源文件列表 - 添加新的用户模式模块
 KERNEL_C_SRCS = kernel/kmain.c \
+                kernel/boot.c \
                 kernel/drivers/fb.c \
                 kernel/drivers/serial.c \
                 kernel/interrupts/idt.c \
@@ -66,6 +87,10 @@ OBJECTS = $(BOOT_OBJ) $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS)
 # 用户程序
 USER_PROGRAMS = user/programs/hello.asm user/programs/file_test.asm
 USER_BINS = $(patsubst user/programs/%.asm,user/build/%.bin,$(USER_PROGRAMS))
+comma := ,
+empty :=
+space := $(empty) $(empty)
+USER_INITRD := $(subst $(space),$(comma),$(USER_BINS))
 
 # 默认目标
 all: user-programs kernel.elf
@@ -100,9 +125,18 @@ os.iso: kernel.elf user-programs
 qemu: kernel.elf
 	qemu-system-i386 -kernel kernel.elf -serial stdio -no-reboot -no-shutdown
 
-# 使用ISO运行QEMU（包含用户程序模块）
+# 使用 ISO 运行 QEMU（包含用户程序模块）
 qemu-iso: os.iso
 	qemu-system-i386 -cdrom os.iso -serial stdio -no-reboot -no-shutdown
+
+# 无 ISO：Multiboot 内核 + 多个模块（QEMU 要求 -initrd 内逗号分隔）
+qemu-modules: kernel.elf user-programs
+	qemu-system-i386 -kernel kernel.elf \
+		-initrd $(USER_INITRD) \
+		-append "modules=hello,file_test" \
+		-serial stdio \
+		-no-reboot \
+		-no-shutdown
 
 # ========== 新增：调试目标（包含用户模块）==========
 # 调试模式 - 使用ISO（推荐，包含用户模块）
@@ -116,7 +150,7 @@ debug-iso: os.iso
 # 调试模式 - 直接加载内核和模块（使用initrd）
 debug-modules: kernel.elf user-programs
 	qemu-system-i386 -kernel kernel.elf \
-		-initrd $(USER_BINS) \
+		-initrd $(USER_INITRD) \
 		-append "modules=hello,file_test" \
 		-s -S \
 		-serial stdio \
@@ -156,9 +190,11 @@ info:
 	@echo "User Programs: $(USER_PROGRAMS)"
 	@echo "User Binaries: $(USER_BINS)"
 	@echo "=== Debug Targets ==="
-	@echo "debug-iso     : Debug with ISO (includes user modules)"
-	@echo "debug-modules : Debug with direct module loading"
-	@echo "debug-qemu    : Debug kernel only (no modules)"
+	@echo "debug-iso      : Debug with ISO (includes user modules)"
+	@echo "debug-modules  : Debug with direct module loading"
+	@echo "debug-qemu     : Debug kernel only (no modules)"
+	@echo "qemu-modules   : Run kernel + user modules (no ISO, no GDB wait)"
+	@echo "CONFIG_DEMO_STARTUP=0 : Skip FS demo + user program demo (include/boot_config.h)"
 
 # 快速构建（不清理）
 quick: $(OBJECTS)
@@ -167,4 +203,4 @@ quick: $(OBJECTS)
 # 删除中间文件时出错则中断
 .DELETE_ON_ERROR:
 
-.PHONY: all clean qemu debug-qemu debug-iso debug-modules run user-programs qemu-iso info quick
+.PHONY: all clean qemu debug-qemu debug-iso debug-modules run user-programs qemu-iso qemu-modules info quick

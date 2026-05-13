@@ -19,3 +19,6 @@ jobs:
 
       - name: Build kernel and user programs
         run: make all
+
+      - name: Build with demos disabled (compile check)
+        run: make clean && make CONFIG_DEMO_STARTUP=0 all
