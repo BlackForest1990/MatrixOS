@@ -1,6 +1,6 @@
 # MatrixOS — operating system development notes
 
-Practical notes for building a small **32-bit x86** teaching kernel: enough technical structure to navigate the tree, without pasting the whole codebase. Current build and run steps are in the root **[README.md](../README.md)**.
+Practical notes for building a small **32-bit x86** teaching kernel: enough technical structure to navigate the tree, without pasting the whole codebase. Current build and run steps are in the root **[README.md](../README.md)**. **Control-flow diagrams (Mermaid):** **[flow-overview.md](flow-overview.md)**.
 
 ---
 
