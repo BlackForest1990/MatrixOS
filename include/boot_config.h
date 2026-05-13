@@ -34,4 +34,7 @@
 /* RAMFS 中用户演示程序名（与 GRUB module / Makefile iso 目标一致） */
 #define BOOT_DEMO_USER_MODULE_NAME "hello"
 
+/* 第二个模块默认名（loader 在 GRUB 未提供模块名时的回退，与 iso 中 file_test 一致） */
+#define BOOT_DEMO_USER_MODULE_NAME_2 "file_test"
+
 #endif

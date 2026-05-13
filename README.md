@@ -41,8 +41,10 @@ make qemu-iso     # ISO + GRUB 模块
 ### Boot phases & demo switch（教学用）
 
 - 启动顺序拆在 `kernel/boot.c`（`boot_early_console`、`boot_mm_init`、…），入口只做编排：`kernel/kmain.c`。
-- 常量与演示开关在 **`include/boot_config.h`**（物理内存区间、演示模块名 `BOOT_DEMO_USER_MODULE_NAME`、内存大测 `BOOT_DEMO_RUN_MEMORY_TESTS` 等）。
+- 常量与演示开关在 **`include/boot_config.h`**（物理内存区间、`BOOT_DEMO_USER_MODULE_NAME` / `BOOT_DEMO_USER_MODULE_NAME_2`、`BOOT_DEMO_RUN_MEMORY_TESTS` 等）。
 - 最短启动（不跑 RAMFS 串口演示、不拉起用户演示进程）：`make CONFIG_DEMO_STARTUP=0 all`。
+- **VFS 错误码**（`kernel/fs/vfs.h`）：均为负数；`ENOMEM` 表示 kmalloc 等分配失败，`EMFILE` 表示 fd/各 fs 私有句柄表满。
+- **演示模块名**：`BOOT_DEMO_USER_MODULE_NAME` / `BOOT_DEMO_USER_MODULE_NAME_2` 与 `loader` 在无 GRUB 模块名时的回退、`test_fs` 自测一致。
 
 ## Repository layout
 
@@ -83,7 +85,7 @@ In the repository **About** (gear icon): set **Description**, optionally **Websi
 
 源码以 **MIT** 开源，见仓库根目录 [`LICENSE`](LICENSE)。
 
-**在 macOS 上运行：** 请先 `brew install nasm qemu i686-elf-gcc`，在项目根目录执行 `make all` 后 `make qemu` 或 `make qemu-modules`（详见上方 Quick start）。演示相关常量见 `include/boot_config.h`。
+**在 macOS 上运行：** 请先 `brew install nasm qemu i686-elf-gcc`，在项目根目录执行 `make all` 后 `make qemu` 或 `make qemu-modules`（详见上方 Quick start）。演示模块名与 loader 回退名见 `include/boot_config.h`（`BOOT_DEMO_USER_MODULE_NAME*`）。
 
 ## 系统架构概览
 

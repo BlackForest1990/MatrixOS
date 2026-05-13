@@ -65,7 +65,7 @@ global interrupt_vectors
 interrupt_vectors:
     %assign i 0
     %rep 256
-        dd int_%+i          ; ✅ 正确展开为 int_0, int_1, ..., int_33
+        dd int_%+i          ; expands to int_0, int_1, ...
         %assign i i+1
     %endrep
 

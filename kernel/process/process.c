@@ -90,7 +90,7 @@ uint32_t process_create_from_module(const char* module_name) {
             serial_printf(COM1, "  Expected: 0x2101000, Got: 0x%x\n", user_page_phys);
             
             if (user_page_phys == 0x2101000) {
-                serial_printf(COM1, "  ✅ Page mapping CORRECT\n");
+                serial_printf(COM1, "  Page mapping OK (matches expected phys page)\n");
                 
                 // 验证用户代码页内容
                 uint32_t temp_user_page = temp_map_page(user_page_phys);
@@ -115,15 +115,15 @@ uint32_t process_create_from_module(const char* module_name) {
                 
                 temp_unmap_page(temp_user_page);
             } else {
-                serial_printf(COM1, "  ❌ Page mapping WRONG!\n");
+                serial_printf(COM1, "  Page mapping WRONG (physical mismatch)\n");
             }
         } else {
-            serial_printf(COM1, "  ❌ Page table entry not present!\n");
+            serial_printf(COM1, "  Page table entry not present\n");
         }
         
         temp_unmap_page(temp_table);
     } else {
-        serial_printf(COM1, "  ❌ Page directory entry not present!\n");
+        serial_printf(COM1, "  Page directory entry not present\n");
     }
     
     temp_unmap_page(temp_page_dir);

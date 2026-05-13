@@ -32,7 +32,7 @@ int vfs_register_fs(const char* name, struct file_operations* ops) {
     if (!name || !ops) return EINVAL;
     
     struct filesystem* new_fs = (struct filesystem*)kmalloc(sizeof(struct filesystem));
-    if (!new_fs) return EMFILE;
+    if (!new_fs) return ENOMEM;
     
     strncpy(new_fs->name, name, MAX_FS_NAME - 1);
     new_fs->name[MAX_FS_NAME - 1] = '\0';

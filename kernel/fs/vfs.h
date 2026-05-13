@@ -27,13 +27,14 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-// 错误代码
-#define ENOENT      -1  // 文件不存在
-#define EACCES      -2  // 权限不足  
-#define EMFILE      -3  // 文件描述符用完
-#define EBADF       -4  // 错误的文件描述符
-#define EINVAL      -5  // 无效参数
-#define EIO         -6  // I/O错误
+/* 错误代码：均为负数，与 POSIX/Linux 数值不同，仅在本内核内一致即可 */
+#define ENOENT      -1  /* 文件不存在 */
+#define EACCES      -2  /* 权限不足 */
+#define EMFILE      -3  /* 打开过多：VFS fd 表或各 fs 私有句柄表满 */
+#define EBADF       -4  /* 无效 fd */
+#define EINVAL      -5  /* 无效参数 */
+#define EIO         -6  /* I/O 错误 */
+#define ENOMEM      -7  /* kmalloc 等分配失败 */
 
 struct file_stat {
     uint32_t size;

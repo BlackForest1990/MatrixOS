@@ -1,5 +1,6 @@
 #include "loader.h"
 #include "multiboot.h"
+#include "boot_config.h"
 #include "serial.h"
 #include "string.h"
 
@@ -26,11 +27,16 @@ void loader_init(uint32_t mods_count, uint32_t mods_addr) {
             strncpy(modules[i].name, grub_name, sizeof(modules[i].name) - 1);
             modules[i].name[sizeof(modules[i].name) - 1] = '\0';
         } else {
-            // 使用简单的默认命名方案
-            if (i == 0) strcpy(modules[i].name, "hello");
-            else if (i == 1) strcpy(modules[i].name, "test"); 
-            else if (i == 2) strcpy(modules[i].name, "demo");
-            else strcpy(modules[i].name, "user_program");
+            /* GRUB 未带模块名字符串时的占位名，须与 iso/Makefile 中模块名一致 */
+            if (i == 0) {
+                strcpy(modules[i].name, BOOT_DEMO_USER_MODULE_NAME);
+            } else if (i == 1) {
+                strcpy(modules[i].name, BOOT_DEMO_USER_MODULE_NAME_2);
+            } else if (i == 2) {
+                strcpy(modules[i].name, "demo");
+            } else {
+                strcpy(modules[i].name, "user_program");
+            }
         }
         
         serial_printf(COM1, "  Module %d: %s (0x%x - 0x%x, %d bytes)\n", 

@@ -1,5 +1,6 @@
 // kernel/fs/test_fs.c
 #include "test_fs.h"
+#include "boot_config.h"
 #include "vfs.h"
 #include "ramfs.h"
 #include "devfs.h"
@@ -12,17 +13,17 @@ void test_filesystem_integration(void) {
     // 测试1: 文件状态查询
     serial_printf(COM1, "Test 1: File stat...\n");
     struct file_stat stat;
-    int result = vfs_stat("hello", &stat);
+    int result = vfs_stat(BOOT_DEMO_USER_MODULE_NAME, &stat);
     if (result == 0) {
-        serial_printf(COM1, "  File 'hello': size=%d, mode=0x%x, type=%d\n", 
-                     stat.size, stat.mode, stat.type);
+        serial_printf(COM1, "  File '%s': size=%d, mode=0x%x, type=%d\n",
+                      BOOT_DEMO_USER_MODULE_NAME, stat.size, stat.mode, stat.type);
     } else {
-        serial_printf(COM1, "  ERROR: Cannot stat file 'hello'\n");
+        serial_printf(COM1, "  ERROR: Cannot stat file '%s'\n", BOOT_DEMO_USER_MODULE_NAME);
     }
     
     // 测试2: 打开和读取文件
     serial_printf(COM1, "Test 2: File open and read...\n");
-    int fd = vfs_open("hello", O_RDONLY);
+    int fd = vfs_open(BOOT_DEMO_USER_MODULE_NAME, O_RDONLY);
     if (fd >= 0) {
         char buffer[128];
         int bytes_read = vfs_read(fd, buffer, sizeof(buffer) - 1);
@@ -32,7 +33,7 @@ void test_filesystem_integration(void) {
         }
         vfs_close(fd);
     } else {
-        serial_printf(COM1, "  ERROR: Cannot open file 'hello'\n");
+        serial_printf(COM1, "  ERROR: Cannot open file '%s'\n", BOOT_DEMO_USER_MODULE_NAME);
     }
     
     // 测试3: 设备文件操作

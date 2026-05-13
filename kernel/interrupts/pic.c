@@ -44,10 +44,11 @@ void pic_remap(int offset1, int offset2) {
 }
 
 void pic_eoi(uint8_t irq) {
-    if (irq >= 8) {                 // ✅ 正确：IRQ 编号 >= 8 表示来自 PIC2
-        outb(PIC2_CMD, 0x20);       // 发送 EOI 给 PIC2
+    if (irq >= 8) {
+        /* IRQ 8–15 来自从片 PIC2，须先对从片发 EOI */
+        outb(PIC2_CMD, 0x20);
     }
-    outb(PIC1_CMD, 0x20);           // 所有中断都必须给 PIC1 发 EOI
+    outb(PIC1_CMD, 0x20); /* 主片 EOI：所有 IRQ 最终都要通知 PIC1 */
 }
 
 void pic_set_mask(uint8_t irq) {
